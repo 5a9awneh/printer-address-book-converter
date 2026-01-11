@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-    Printer Address Book Converter v1.4
+    Printer Address Book Converter v1.5
 
 .DESCRIPTION
     Converts printer address book files between Canon, Sharp, Xerox, and Develop/Konica formats.
@@ -9,10 +9,13 @@
 .NOTES
     Author: Faris Khasawneh
     Created: January 2026
-    Version: 1.4
-    Supports: Canon, Sharp MX/BP, Xerox AltaLink/VersaLink, Develop/Konica/Bizhub
+    Version: 1.5
+    Supports: Canon (iR-ADV, imageFORCE), Sharp MX/BP, Xerox AltaLink/VersaLink, Develop/Konica/Bizhub
 
 .CHANGELOG
+    v1.5 - CRITICAL FIX: Canon CSV format now uses UNQUOTED headers with trailing comma
+           Matches native Canon export format (imageFORCE-6160 compatibility)
+           Ensures universal compatibility across all Canon models
     v1.4 - CRITICAL FIX: Added all missing columns to match original export formats
            Sharp: Added 15 columns (FTP/SMB/Desktop auth fields)
            Xerox: Added 13 columns (Scan/InternetFax fields)  
@@ -525,24 +528,46 @@ function Write-AddressBook {
             Remove-Item -Path $tempFile -Force
         }
         elseif ($TargetBrand -eq 'Canon') {
-            $tempFile = [System.IO.Path]::GetTempFileName()
-            $output | Export-Csv -Path $tempFile -NoTypeInformation -Encoding UTF8
+            # Canon header block
+            $header = @"
+`# Canon AddressBook CSV version: 0x0003
+# CharSet: UTF-8
+# dn: fixed
+# DB Version: 0x010b
 
-            $csvContent = Get-Content -Path $tempFile -Encoding UTF8
+"@
 
-            $canonFile = [System.IO.StreamWriter]::new($OutputPath, $false, [System.Text.Encoding]::UTF8)
-            $canonFile.WriteLine("# Canon AddressBook CSV version: 0x0003")
-            $canonFile.WriteLine("# CharSet: UTF-8")
-            $canonFile.WriteLine("# dn: fixed")
-            $canonFile.WriteLine("# DB Version: 0x010b")
-            $canonFile.WriteLine("")
+            # Canon CSV column header - UNQUOTED with trailing comma (imageFORCE-6160 format)
+            $canonColumns = "objectclass,cn,cnread,cnshort,subdbid,mailaddress,dialdata,uri,url,path,protocol,username,pwd,member,indxid,enablepartial,sub,faxprotocol,ecm,txstartspeed,commode,lineselect,uricommode,uriflag,pwdinputflag,ifaxmode,transsvcstr1,transsvcstr2,ifaxdirectmode,documenttype,bwpapersize,bwcompressiontype,bwpixeltype,bwbitsperpixel,bwresolution,clpapersize,clcompressiontype,clpixeltype,clbitsperpixel,clresolution,accesscode,uuid,cnreadlang,enablesfp,memberobjectuuid,loginusername,logindomainname,usergroupname,personalid,folderidflag,"
 
-            foreach ($line in $csvContent) {
-                $canonFile.WriteLine($line)
+            # Write header block + CSV column header
+            [System.IO.File]::WriteAllText($OutputPath, $header + $canonColumns + "`r`n", [System.Text.Encoding]::UTF8)
+
+            # Write data rows from $output array
+            foreach ($obj in $output) {
+                $row = @(
+                    $obj.objectclass,
+                    "`"$($obj.cn)`"",
+                    "`"$($obj.cnread)`"",
+                    "`"$($obj.cnshort)`"",
+                    $obj.subdbid,
+                    "`"$($obj.mailaddress)`"",
+                    $obj.dialdata, $obj.uri, $obj.url, $obj.path, $obj.protocol,
+                    $obj.username, $obj.pwd, $obj.member, $obj.indxid, $obj.enablepartial,
+                    $obj.sub, $obj.faxprotocol, $obj.ecm, $obj.txstartspeed, $obj.commode,
+                    $obj.lineselect, $obj.uricommode, $obj.uriflag, $obj.pwdinputflag,
+                    $obj.ifaxmode, $obj.transsvcstr1, $obj.transsvcstr2, $obj.ifaxdirectmode,
+                    $obj.documenttype, $obj.bwpapersize, $obj.bwcompressiontype, $obj.bwpixeltype,
+                    $obj.bwbitsperpixel, $obj.bwresolution, $obj.clpapersize, $obj.clcompressiontype,
+                    $obj.clpixeltype, $obj.clbitsperpixel, $obj.clresolution, $obj.accesscode,
+                    $obj.uuid, $obj.cnreadlang, $obj.enablesfp, $obj.memberobjectuuid,
+                    $obj.loginusername, $obj.logindomainname, $obj.usergroupname, $obj.personalid,
+                    $obj.folderidflag
+                )
+
+                $line = $row -join ','
+                [System.IO.File]::AppendAllText($OutputPath, $line + "`r`n", [System.Text.Encoding]::UTF8)
             }
-
-            $canonFile.Close()
-            Remove-Item -Path $tempFile -Force
         }
         else {
             $output | Export-Csv -Path $OutputPath -NoTypeInformation -Encoding UTF8
@@ -636,7 +661,7 @@ function Show-Menu {
 
         Write-Host ""
         Write-Host "===============================================================" -ForegroundColor Cyan
-        Write-Host "  PRINTER ADDRESS BOOK CONVERTER v1.4" -ForegroundColor Cyan
+        Write-Host "  PRINTER ADDRESS BOOK CONVERTER v1.5" -ForegroundColor Cyan
         Write-Host "  Canon | Sharp | Xerox | Develop/Konica" -ForegroundColor Cyan
         Write-Host "  by Faris Khasawneh - January 2026" -ForegroundColor Gray
         Write-Host "===============================================================" -ForegroundColor Cyan
