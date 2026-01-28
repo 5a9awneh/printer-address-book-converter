@@ -47,6 +47,19 @@ Extract header/footer logic and isolate contact data blocks for all brands.
 - **Acceptance Criteria**: All test files parse and reconstruct without line loss. Empty lines in headers/footers remain intact.
 - **Time**: 15 min
 
+### 1.5 Enhance logging for development debugging
+- **Files**: `Convert-PrinterAddressBook.ps1`
+- **Modifies**: `Write-Log()` function and add logging throughout pipeline
+- **Description**: **[PRIORITY]** Enhance existing logging to include:
+  - Function entry/exit with parameters (DEBUG level)
+  - Data transformation steps with before/after counts
+  - Detailed error messages with stack traces
+  - Add `-Verbose` parameter support to show logs in console
+  - Log file location printed at script start
+  This enables better debugging/tracing during development.
+- **Acceptance Criteria**: All major functions log entry/exit. Errors include full context. `-Verbose` shows real-time logging. Test runs show clear trace of execution flow.
+- **Time**: 25 min
+
 ---
 
 ## Phase 2: Field Mapping Engine
@@ -153,11 +166,11 @@ Add optional post-processing features and comprehensive test suite.
 
 | Phase | Tasks | Focus | Est. Time |
 |-------|-------|-------|-----------|
-| 1     | 1.1–1.4 | Parsing & structure extraction + CLI | 1 h 25 min |
+| 1     | 1.1–1.5 | Parsing + CLI + Logging | 1 h 50 min |
 | 2     | 2.1–2.3 | Field mapping & normalization | 1 h 10 min |
 | 3     | 3.1–3.3 | Output writing & integration | 1 h 5 min |
 | 4     | 4.1–4.5 | Dedup, Outlook, testing, docs | 1 h 55 min |
-| **Total** | **17 tasks** | **End-to-end refactor + testing** | **~5 h 35 min** |
+| **Total** | **18 tasks** | **End-to-end refactor + testing** | **~6 h** |
 
 ---
 

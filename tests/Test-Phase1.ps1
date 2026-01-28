@@ -25,7 +25,7 @@ $testResults = @{
 }
 
 # Get test files
-$testFiles = Get-ChildItem -Path "$PSScriptRoot\source_exports\*.csv" -ErrorAction SilentlyContinue
+$testFiles = @(Get-ChildItem -Path "$PSScriptRoot\source_exports\*.csv" -ErrorAction SilentlyContinue)
 
 if ($testFiles.Count -eq 0) {
     Write-Host "No test CSV files found in tests/source_exports/" -ForegroundColor Red
