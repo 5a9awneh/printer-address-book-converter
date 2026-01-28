@@ -185,6 +185,14 @@ Add optional post-processing features and comprehensive test suite.
 
 Each task is sized to be completable in one focused session (15–45 min). Parallel execution possible within Phase 4.
 
+### Documentation Guidelines
+
+- **Keep it minimal**: Update ONLY this plan file with task completion status
+- **No separate reports**: Unless explicitly requested, avoid creating validation reports or summary documents
+- **Surgical updates**: Mark tasks as ✅ COMPLETE with actual time and completion date inline
+- **Commit messages**: Use detailed git commit messages to document what was done
+- **Let git tell the story**: Code changes and commit history are the primary documentation
+
 ---
 
 ## Key Symbols Reference
