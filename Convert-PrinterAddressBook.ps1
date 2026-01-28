@@ -148,7 +148,10 @@ function Write-Log {
     try {
         Add-Content -Path $Script:LogFile -Value $logEntry -ErrorAction Stop
     }
-    catch {}
+    catch {
+        # Silently ignore log write failures to prevent script interruption
+        # Log file might be locked, missing permissions, or disk full
+    }
 
     # Also write to console if -Verbose or level is WARN/ERROR
     if ($VerbosePreference -eq 'Continue' -or $Level -in @('WARN', 'ERROR')) {
