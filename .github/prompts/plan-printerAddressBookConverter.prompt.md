@@ -90,10 +90,18 @@ Build normalized mapping layer for email and name fields.
 ### 2.3 Test field mapping with multi-brand conversions ✅ COMPLETE
 - **Files**: `tests/Test-Phase2-Integration.ps1`
 - **Creates**: Integration test suite for all brand-pair conversions
-- **Description**: Test conversion from each brand to each other brand (Canon→Sharp, Sharp→Xerox, etc.). Verify email and name appear in correct columns of output. Run against real test files from tests/source_exports/.
-- **Acceptance Criteria**: ✅ All 12 brand-pair combinations produce valid output. ✅ Names and emails land in correct columns. ✅ No data loss. ✅ Validated with real CSV files: Canon (17), Sharp (14), Xerox (4), Develop (8) contacts.
-- **Time**: 25 min → **Actual: 35 min** (fixed CSV parsing edge cases)
+- **Description**: Test conversion from each brand to each other brand (Canon→Sharp, Sharp→Xerox, etc.). Verify email and name appear in correct columns of output. Run against real test files from tests/source_exports/. Expanded to test ALL 13 CSV files.
+- **Acceptance Criteria**: ✅ All brand-pair combinations produce valid output. ✅ Names and emails land in correct columns. ✅ No data loss. ✅ Validated with 13 real CSV files (253 contacts total). ✅ 39/39 integration tests passing.
+- **Time**: 25 min → **Actual: 45 min** (expanded to 13 files, fixed CSV parsing edge cases)
 - **Completed**: 2026-01-28
+
+### 2.4 Interactive workflow testing (moved from Phase 4.4)
+- **Files**: `tests/Test-Interactive.ps1` (new)
+- **Creates**: Manual interactive workflow validation script
+- **Description**: Create guided interactive test for manual validation of user workflows: file selection dialogs, menu navigation, mode selection (Single/Batch/Merge), conversion execution, backup/restore validation. Tests actual UI/UX experience including dialog foreground behavior.
+- **Acceptance Criteria**: Dialog appears in foreground. All menu options work correctly. File selection is intuitive. Success/error messages are clear. Backup/restore functions properly.
+- **Time**: 20 min
+- **Note**: Moved earlier due to dialog display issues during manual testing
 
 ---
 
@@ -154,12 +162,9 @@ Add optional post-processing features and comprehensive test suite.
 - **Acceptance Criteria**: Test suite runs without errors. All conversions pass validation. Edge cases handled gracefully.
 - **Time**: 45 min
 
-### 4.4 Create integration test with user workflows
-- **Files**: `tests/` (workflow test)
-- **Creates**: End-to-end workflow scripts
-- **Description**: Simulate user workflows: load CSV, convert, validate, export, backup. Include recovery scenario (restore from backup). Document expected output.
-- **Acceptance Criteria**: Workflows complete successfully. Backups created and restore-able. Help text is clear.
-- **Time**: 20 min
+### 4.4 Create integration test with user workflows ✅ MOVED TO 2.4
+- **Status**: Moved to Task 2.4 (Phase 2) due to immediate need for UI validation
+- **See**: Task 2.4 for implementation details
 
 ### 4.5 Refine menu and documentation
 - **Files**: `Convert-PrinterAddressBook.ps1`, `README.md`
@@ -178,10 +183,10 @@ Add optional post-processing features and comprehensive test suite.
 | **2** | **2.1–2.3** | **Field mapping & normalization** | **1 h 10 min** | **~1 h** | **✅ COMPLETE** |
 | 3     | 3.1–3.3 | Output writing & integration | 1 h 5 min | — | Not started |
 | 4     | 4.1–4.5 | Dedup, Outlook, testing, docs | 1 h 55 min | — | Not started |
-| **Total** | **18 tasks** | **End-to-end refactor + testing** | **~6 h** | **~1 h** | **2/18 tasks** |
-
----
-
+| **Total** | **184** | **Field mapping + normalization + interactive tests** | **1 h 30 min** | **~1 h 5 min** | **⏳ 3/4 tasks** |
+| 3     | 3.1–3.3 | Output writing & integration | 1 h 5 min | — | Not started |
+| 4     | 4.1–4.5 | Dedup, Outlook, testing, docs | 1 h 55 min | — | Not started |
+| **Total** | **18 tasks** | **End-to-end refactor + testing** | **~6 h** | **~1 h 5 min** | **3
 ## How to Use This Plan
 
 1. **Pick a task**: e.g., "Execute task 1.1 from planx.md"
