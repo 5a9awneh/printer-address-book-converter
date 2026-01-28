@@ -116,18 +116,70 @@ $Script:LogFile = "converter-$(Get-Date -Format 'yyyy-MM-dd').log"
 #region Utility Functions
 
 function Write-Log {
+    <#
+    .SYNOPSIS
+        Enhanced logging with console output support
+    #>
     param(
+        [Parameter(Mandatory=$true)]
+        [ValidateSet('DEBUG', 'INFO', 'WARN', 'ERROR')]
         [string]$Level,
-        [string]$Message
+        
+        [Parameter(Mandatory=$true)]
+        [string]$Message,
+        
+        [Parameter(Mandatory=$false)]
+        [string]$Function = '',
+        
+        [Parameter(Mandatory=$false)]
+        [System.Management.Automation.ErrorRecord]$ErrorRecord = $null
     )
 
-    $timestamp = Get-Date -Format 'yyyy-MM-dd HHmmss'
-    $logEntry = "$timestamp $Level $Message"
+    $timestamp = Get-Date -Format 'yyyy-MM-dd HH:mm:ss'
+    $functionPart = if ($Function) { " [$Function]" } else { '' }
+    $logEntry = "$timestamp $Level$functionPart $Message"
+
+    # Add error details if provided
+    if ($ErrorRecord) {
+        $logEntry += "`n  Exception: $($ErrorRecord.Exception.Message)"
+        $logEntry += "`n  Location: $($ErrorRecord.InvocationInfo.ScriptName):$($ErrorRecord.InvocationInfo.ScriptLineNumber)"
+    }
 
     try {
         Add-Content -Path $Script:LogFile -Value $logEntry -ErrorAction Stop
     }
     catch {}
+
+    # Also write to console if -Verbose or level is WARN/ERROR
+    if ($VerbosePreference -eq 'Continue' -or $Level -in @('WARN', 'ERROR')) {
+        $color = switch ($Level) {
+            'DEBUG' { 'Gray' }
+            'INFO'  { 'White' }
+            'WARN'  { 'Yellow' }
+            'ERROR' { 'Red' }
+        }
+        Write-Host "[$Level]$functionPart $Message" -ForegroundColor $color
+    }
+}
+
+function Write-FunctionEntry {
+    param(
+        [string]$FunctionName,
+        [hashtable]$Parameters = @{}
+    )
+    
+    $paramString = ($Parameters.GetEnumerator() | ForEach-Object { "$($_.Key)=$($_.Value)" }) -join ', '
+    Write-Log -Level 'DEBUG' -Function $FunctionName -Message "ENTER: $paramString"
+}
+
+function Write-FunctionExit {
+    param(
+        [string]$FunctionName,
+        [object]$Result = $null
+    )
+    
+    $resultString = if ($Result) { "Result: $Result" } else { '' }
+    Write-Log -Level 'DEBUG' -Function $FunctionName -Message "EXIT: $resultString"
 }
 
 function Test-SafePath {
@@ -229,6 +281,8 @@ function Extract-CsvStructure {
         [string]$Encoding = 'UTF8'
     )
 
+    Write-FunctionEntry -FunctionName 'Extract-CsvStructure' -Parameters @{ FilePath = $FilePath; Encoding = $Encoding }
+
     try {
         # Read all lines preserving empty lines
         $allLines = Get-Content -Path $FilePath -Encoding $Encoding
@@ -280,16 +334,19 @@ function Extract-CsvStructure {
             @()
         }
 
-        Write-Log "INFO" "Extracted structure: $($headers.Count) header lines, $($contacts.Count) contact lines, $($footers.Count) footer lines"
+        Write-Log -Level 'INFO' -Function 'Extract-CsvStructure' -Message "Extracted: $($headers.Count) headers, $($contacts.Count) contacts, $($footers.Count) footers"
 
-        return @{
+        $result = @{
             Headers  = $headers
             Contacts = $contacts
             Footers  = $footers
         }
+        
+        Write-FunctionExit -FunctionName 'Extract-CsvStructure' -Result "$($contacts.Count) contacts"
+        return $result
     }
     catch {
-        Write-Log "ERROR" "Extract-CsvStructure failed for ${FilePath}: $_"
+        Write-Log -Level 'ERROR' -Function 'Extract-CsvStructure' -Message "Failed for ${FilePath}" -ErrorRecord $_
         throw
     }
 }
@@ -385,7 +442,10 @@ function Read-AddressBook {
         [string]$Brand
     )
 
+    Write-FunctionEntry -FunctionName 'Read-AddressBook' -Parameters @{ FilePath = $FilePath; Brand = $Brand }
+
     if (-not (Test-SafePath -Path $FilePath)) {
+        Write-Log -Level 'ERROR' -Function 'Read-AddressBook' -Message "Invalid file path: $FilePath"
         throw "Invalid file path"
     }
 
@@ -471,11 +531,12 @@ function Read-AddressBook {
             }
         }
 
-        Write-Log "INFO" "Read $($contacts.Count) contacts from $FilePath $Brand"
+        Write-Log -Level 'INFO' -Function 'Read-AddressBook' -Message "Read $($contacts.Count) contacts from $FilePath"
+        Write-FunctionExit -FunctionName 'Read-AddressBook' -Result "$($contacts.Count) contacts"
         return $contacts
     }
     catch {
-        Write-Log "ERROR" "Read failed for ${FilePath} $_"
+        Write-Log -Level 'ERROR' -Function 'Read-AddressBook' -Message "Read failed for ${FilePath}" -ErrorRecord $_
         throw
     }
 }
@@ -1054,7 +1115,14 @@ function Convert-AddressBook {
 function Main {
     Clear-Host
 
-    Write-Log "INFO" "Session started"
+    Write-Host "===============================================================" -ForegroundColor Cyan
+    Write-Host "  Printer Address Book Converter v1.5" -ForegroundColor Cyan
+    Write-Host "  Log file: $Script:LogFile" -ForegroundColor Gray
+    Write-Host "===============================================================" -ForegroundColor Cyan
+    Write-Host ""
+
+    Write-FunctionEntry -FunctionName 'Main' -Parameters @{ SourcePath = $SourcePath; TargetBrand = $TargetBrand; Mode = $Mode; NoInteractive = $NoInteractive }
+    Write-Log -Level 'INFO' -Function 'Main' -Message "Session started"
 
     # Non-interactive mode
     if ($NoInteractive -and $SourcePath -and $TargetBrand) {
@@ -1317,7 +1385,8 @@ function Main {
 
     Show-ValidationReport
 
-    Write-Log "INFO" "Session completed"
+    Write-Log -Level 'INFO' -Function 'Main' -Message "Session completed"
+    Write-FunctionExit -FunctionName 'Main'
     Write-Host ""
 }
 
