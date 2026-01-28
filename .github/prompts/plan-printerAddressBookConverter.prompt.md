@@ -179,14 +179,14 @@ Add optional post-processing features and comprehensive test suite.
 
 | Phase | Tasks | Focus | Est. Time | Actual Time | Status |
 |-------|-------|-------|-----------|-------------|--------|
-| 1     | 1.1–1.5 | Parsing + CLI + Logging | 1 h 50 min | — | Not started |
-| **2** | **2.1–2.3** | **Field mapping & normalization** | **1 h 10 min** | **~1 h** | **✅ COMPLETE** |
+| **1** | **1.1–1.5** | **Parsing + CLI + Logging** | **1 h 50 min** | **1 h 50 min** | **✅ COMPLETE** |
+| **2** | **2.1–2.4** | **Field mapping + normalization + interactive tests** | **1 h 30 min** | **1 h 20 min** | **⏳ 3/4 tasks** |
 | 3     | 3.1–3.3 | Output writing & integration | 1 h 5 min | — | Not started |
 | 4     | 4.1–4.5 | Dedup, Outlook, testing, docs | 1 h 55 min | — | Not started |
-| **Total** | **184** | **Field mapping + normalization + interactive tests** | **1 h 30 min** | **~1 h 5 min** | **⏳ 3/4 tasks** |
-| 3     | 3.1–3.3 | Output writing & integration | 1 h 5 min | — | Not started |
-| 4     | 4.1–4.5 | Dedup, Outlook, testing, docs | 1 h 55 min | — | Not started |
-| **Total** | **18 tasks** | **End-to-end refactor + testing** | **~6 h** | **~1 h 5 min** | **3
+| **Total** | **18 tasks** | **End-to-end refactor + testing** | **~6 h** | **~3 h 10 min** | **8/18 tasks (44%)** |
+
+---
+
 ## How to Use This Plan
 
 1. **Pick a task**: e.g., "Execute task 1.1 from planx.md"
