@@ -67,41 +67,41 @@ param(
 
 $Script:BrandConfig = @{
     'Canon'   = @{
-        NameField         = 'cn'
-        EmailField        = 'mailaddress'
-        Encoding          = 'UTF8'
-        Delimiter         = ','
-        HasComments       = $true
-        SignatureColumns  = @('objectclass', 'cn', 'mailaddress')
+        NameField        = 'cn'
+        EmailField       = 'mailaddress'
+        Encoding         = 'UTF8'
+        Delimiter        = ','
+        HasComments      = $true
+        SignatureColumns = @('objectclass', 'cn', 'mailaddress')
         # Output field mappings
-        OutputFields      = @{
+        OutputFields     = @{
             DisplayName = 'cn'
             Email       = 'mailaddress'
         }
     }
     'Sharp'   = @{
-        NameField         = 'name'
-        EmailField        = 'mail-address'
-        Encoding          = 'UTF8'
-        Delimiter         = ','
-        HasComments       = $false
-        SignatureColumns  = @('address', 'name', 'mail-address', 'ftp-host')
+        NameField        = 'name'
+        EmailField       = 'mail-address'
+        Encoding         = 'UTF8'
+        Delimiter        = ','
+        HasComments      = $false
+        SignatureColumns = @('address', 'name', 'mail-address', 'ftp-host')
         # Output field mappings
-        OutputFields      = @{
+        OutputFields     = @{
             DisplayName = 'name'
             Email       = 'mail-address'
         }
     }
     'Xerox'   = @{
-        NameField         = 'DisplayName'
-        NameFieldAlt      = @('FirstName', 'LastName')
-        EmailField        = 'E-mailAddress'
-        Encoding          = 'UTF8'
-        Delimiter         = ','
-        HasComments       = $false
-        SignatureColumns  = @('XrxAddressBookId', 'DisplayName', 'E-mailAddress')
+        NameField        = 'DisplayName'
+        NameFieldAlt     = @('FirstName', 'LastName')
+        EmailField       = 'E-mailAddress'
+        Encoding         = 'UTF8'
+        Delimiter        = ','
+        HasComments      = $false
+        SignatureColumns = @('XrxAddressBookId', 'DisplayName', 'E-mailAddress')
         # Output field mappings
-        OutputFields      = @{
+        OutputFields     = @{
             DisplayName = 'DisplayName'
             FirstName   = 'FirstName'
             LastName    = 'LastName'
@@ -109,15 +109,15 @@ $Script:BrandConfig = @{
         }
     }
     'Develop' = @{
-        NameField         = 'Name'
-        EmailField        = 'MailAddress'
-        Encoding          = 'Unicode'
-        Delimiter         = "`t"
-        HasComments       = $false
-        SkipRows          = 2
-        SignatureColumns  = @('AbbrNo', 'Name', 'MailAddress')
+        NameField        = 'Name'
+        EmailField       = 'MailAddress'
+        Encoding         = 'Unicode'
+        Delimiter        = "`t"
+        HasComments      = $false
+        SkipRows         = 2
+        SignatureColumns = @('AbbrNo', 'Name', 'MailAddress')
         # Output field mappings
-        OutputFields      = @{
+        OutputFields     = @{
             DisplayName = 'Name'
             Email       = 'MailAddress'
         }
@@ -292,10 +292,10 @@ function ConvertTo-NormalizedContact {
         Normalized contact hashtable: @{Email, FirstName, LastName, DisplayName}
     #>
     param(
-        [Parameter(Mandatory=$true)]
+        [Parameter(Mandatory = $true)]
         [PSCustomObject]$Contact,
         
-        [Parameter(Mandatory=$true)]
+        [Parameter(Mandatory = $true)]
         [ValidateSet('Canon', 'Sharp', 'Xerox', 'Develop')]
         [string]$SourceBrand
     )
@@ -400,10 +400,10 @@ function ConvertFrom-NormalizedContact {
         Hashtable with target brand field names
     #>
     param(
-        [Parameter(Mandatory=$true)]
+        [Parameter(Mandatory = $true)]
         [hashtable]$NormalizedContact,
         
-        [Parameter(Mandatory=$true)]
+        [Parameter(Mandatory = $true)]
         [ValidateSet('Canon', 'Sharp', 'Xerox', 'Develop')]
         [string]$TargetBrand
     )

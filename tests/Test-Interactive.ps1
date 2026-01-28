@@ -34,9 +34,9 @@ Write-Host ""
 
 $testResults = @{
     TotalTests = 0
-    Passed = 0
-    Failed = 0
-    Skipped = 0
+    Passed     = 0
+    Failed     = 0
+    Skipped    = 0
 }
 
 function Test-Step {
