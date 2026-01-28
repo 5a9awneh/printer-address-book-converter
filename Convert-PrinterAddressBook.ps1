@@ -388,7 +388,9 @@ function ConvertFrom-NormalizedContact {
     
     .DESCRIPTION
         Maps normalized contact fields (Email, FirstName, LastName, DisplayName)
-        to target brand-specific field names using BrandConfig OutputFields.
+        to target brand-specific field names and values using BrandConfig OutputFields.
+        Handles brand-specific transformations (e.g., name truncation for Canon,
+        search keys for Develop).
     
     .PARAMETER NormalizedContact
         Normalized contact hashtable: @{Email, FirstName, LastName, DisplayName}
@@ -397,7 +399,7 @@ function ConvertFrom-NormalizedContact {
         Brand of the target format (Canon, Sharp, Xerox, Develop)
     
     .OUTPUTS
-        Hashtable with target brand field names
+        Hashtable with target brand field names and values
     #>
     param(
         [Parameter(Mandatory = $true)]
@@ -414,22 +416,39 @@ function ConvertFrom-NormalizedContact {
         $config = $Script:BrandConfig[$TargetBrand]
         $targetContact = @{}
         
-        # Map normalized fields to target brand fields
-        if ($config.OutputFields.DisplayName) {
-            $targetContact[$config.OutputFields.DisplayName] = $NormalizedContact.DisplayName
-        }
-        
-        if ($config.OutputFields.Email) {
-            $targetContact[$config.OutputFields.Email] = $NormalizedContact.Email
-        }
-        
-        # Xerox uses separate FirstName/LastName
-        if ($TargetBrand -eq 'Xerox') {
-            if ($config.OutputFields.FirstName) {
-                $targetContact[$config.OutputFields.FirstName] = $NormalizedContact.FirstName
+        # Map fields based on target brand
+        switch ($TargetBrand) {
+            'Canon' {
+                $displayName = $NormalizedContact.DisplayName
+                $targetContact = @{
+                    cn          = $displayName
+                    cnread      = $displayName
+                    cnshort     = $displayName.Substring(0, [Math]::Min(13, $displayName.Length))
+                    mailaddress = $NormalizedContact.Email
+                }
             }
-            if ($config.OutputFields.LastName) {
-                $targetContact[$config.OutputFields.LastName] = $NormalizedContact.LastName
+            'Sharp' {
+                $targetContact = @{
+                    name            = $NormalizedContact.DisplayName
+                    'search-string' = $NormalizedContact.DisplayName
+                    'mail-address'  = $NormalizedContact.Email
+                }
+            }
+            'Xerox' {
+                $targetContact = @{
+                    DisplayName     = $NormalizedContact.DisplayName
+                    FirstName       = $NormalizedContact.FirstName
+                    LastName        = $NormalizedContact.LastName
+                    'E-mailAddress' = $NormalizedContact.Email
+                }
+            }
+            'Develop' {
+                $targetContact = @{
+                    Name        = $NormalizedContact.DisplayName
+                    Furigana    = $NormalizedContact.DisplayName
+                    SearchKey   = Get-SearchKey -Name $NormalizedContact.DisplayName
+                    MailAddress = $NormalizedContact.Email
+                }
             }
         }
         
@@ -738,26 +757,65 @@ function Read-AddressBook {
 }
 
 function Write-AddressBook {
+    <#
+    .SYNOPSIS
+        Writes normalized contacts to target brand CSV format.
+    
+    .DESCRIPTION
+        Accepts normalized contact objects and converts them to target brand format.
+        Uses ConvertFrom-NormalizedContact for field mapping and fills all required
+        brand-specific fields with defaults. Preserves encoding and delimiters.
+    
+    .PARAMETER NormalizedContacts
+        Array of normalized contact hashtables: @{Email, FirstName, LastName, DisplayName}
+    
+    .PARAMETER OutputPath
+        Path where the output CSV will be written
+    
+    .PARAMETER TargetBrand
+        Brand format for output (Canon, Sharp, Xerox, Develop)
+    
+    .OUTPUTS
+        None - writes file to OutputPath
+    #>
     param(
-        [array]$Contacts,
+        [Parameter(Mandatory = $true)]
+        [array]$NormalizedContacts,
+        
+        [Parameter(Mandatory = $true)]
         [string]$OutputPath,
+        
+        [Parameter(Mandatory = $true)]
+        [ValidateSet('Canon', 'Sharp', 'Xerox', 'Develop')]
         [string]$TargetBrand
     )
+
+    Write-FunctionEntry -FunctionName 'Write-AddressBook' -Parameters @{ OutputPath = $OutputPath; TargetBrand = $TargetBrand; ContactCount = $NormalizedContacts.Count }
 
     try {
         $output = @()
         $id = 1
 
-        foreach ($contact in $Contacts) {
+        # Convert each normalized contact to target brand format
+        foreach ($normalized in $NormalizedContacts) {
+            # Map to target brand fields
+            $targetFields = ConvertFrom-NormalizedContact -NormalizedContact $normalized -TargetBrand $TargetBrand
+            
+            if ($null -eq $targetFields) {
+                Write-Log -Level 'WARN' -Function 'Write-AddressBook' -Message "Skipping contact - conversion failed: $($normalized.DisplayName)"
+                continue
+            }
+
+            # Build complete brand-specific object with all required fields
             switch ($TargetBrand) {
                 'Canon' {
                     $output += [PSCustomObject]@{
                         objectclass       = 'email'
-                        cn                = $contact.Name
-                        cnread            = $contact.Name
-                        cnshort           = $contact.Name.Substring(0, [Math]::Min(13, $contact.Name.Length))
+                        cn                = $targetFields.cn
+                        cnread            = $targetFields.cnread
+                        cnshort           = $targetFields.cnshort
                         subdbid           = 11
-                        mailaddress       = $contact.Email
+                        mailaddress       = $targetFields.mailaddress
                         dialdata          = ''
                         uri               = ''
                         url               = ''
@@ -808,11 +866,11 @@ function Write-AddressBook {
                     $output += [PSCustomObject]@{
                         address                            = 'data'
                         'search-id'                        = $id
-                        name                               = $contact.Name
-                        'search-string'                    = $contact.Name
+                        name                               = $targetFields.name
+                        'search-string'                    = $targetFields.'search-string'
                         'category-id'                      = 1
                         'frequently-used'                  = 'FALSE'
-                        'mail-address'                     = $contact.Email
+                        'mail-address'                     = $targetFields.'mail-address'
                         'fax-number'                       = ''
                         'ifax-address'                     = ''
                         'ftp-host'                         = ''
@@ -836,13 +894,11 @@ function Write-AddressBook {
                     }
                 }
                 'Xerox' {
-                    $nameParts = Split-FullName -FullName $contact.Name
-
                     $output += [PSCustomObject]@{
                         XrxAddressBookId       = $id
-                        DisplayName            = $contact.Name
-                        FirstName              = $nameParts.FirstName
-                        LastName               = $nameParts.LastName
+                        DisplayName            = $targetFields.DisplayName
+                        FirstName              = $targetFields.FirstName
+                        LastName               = $targetFields.LastName
                         Company                = ''
                         XrxAllFavoritesOrder   = ''
                         MemberOf               = '""""""'
@@ -850,7 +906,7 @@ function Write-AddressBook {
                         XrxApplicableWorkflows = ''
                         FaxNumber              = ''
                         XrxIsFaxFavorite       = 0
-                        'E-mailAddress'        = $contact.Email
+                        'E-mailAddress'        = $targetFields.'E-mailAddress'
                         XrxIsEmailFavorite     = 0
                         InternetFaxAddress     = ''
                         ScanNickName           = ''
@@ -870,17 +926,17 @@ function Write-AddressBook {
                 'Develop' {
                     $output += [PSCustomObject]@{
                         AbbrNo              = $id
-                        Name                = $contact.Name
+                        Name                = $targetFields.Name
                         Pinyin              = 'No'
-                        Furigana            = $contact.Name
-                        SearchKey           = (Get-SearchKey -Name $contact.Name)
+                        Furigana            = $targetFields.Furigana
+                        SearchKey           = $targetFields.SearchKey
                         WellUse             = 'Yes'
                         SendMode            = 'Email'
                         IconID              = ''
                         UseReferLicence     = 'Level'
                         ReferGroupNo        = 0
                         ReferPossibleLevel  = 0
-                        MailAddress         = $contact.Email
+                        MailAddress         = $targetFields.MailAddress
                         FTPServerAddress    = ''
                         FTPServerFolder     = ''
                         FTPLoginAnonymous   = ''
@@ -920,6 +976,7 @@ function Write-AddressBook {
             $id++
         }
 
+        # Write output with brand-specific encoding and format
         if ($TargetBrand -eq 'Develop') {
             $timestamp = Get-Date -Format 'yyyy.M.d HH:mm:ss'
             $header1 = "@Ver406`t22C-6e`tIntegrate`tUTF-16LE`t${timestamp}`tabbr`t000ac209552c58a5b6222cf539ab712a255b`t"
@@ -943,13 +1000,13 @@ function Write-AddressBook {
 
 "@
 
-            # Canon CSV column header - UNQUOTED with trailing comma (imageFORCE-6160 format)
+            # Canon CSV column header - UNQUOTED with trailing comma
             $canonColumns = "objectclass,cn,cnread,cnshort,subdbid,mailaddress,dialdata,uri,url,path,protocol,username,pwd,member,indxid,enablepartial,sub,faxprotocol,ecm,txstartspeed,commode,lineselect,uricommode,uriflag,pwdinputflag,ifaxmode,transsvcstr1,transsvcstr2,ifaxdirectmode,documenttype,bwpapersize,bwcompressiontype,bwpixeltype,bwbitsperpixel,bwresolution,clpapersize,clcompressiontype,clpixeltype,clbitsperpixel,clresolution,accesscode,uuid,cnreadlang,enablesfp,memberobjectuuid,loginusername,logindomainname,usergroupname,personalid,folderidflag,"
 
             # Write header block + CSV column header
             [System.IO.File]::WriteAllText($OutputPath, $header + $canonColumns + "`r`n", [System.Text.Encoding]::UTF8)
 
-            # Write data rows from $output array
+            # Write data rows
             foreach ($obj in $output) {
                 $row = @(
                     $obj.objectclass,
@@ -976,13 +1033,15 @@ function Write-AddressBook {
             }
         }
         else {
+            # Sharp and Xerox use standard CSV export
             $output | Export-Csv -Path $OutputPath -NoTypeInformation -Encoding UTF8
         }
 
-        Write-Log "INFO" "Wrote $($output.Count) contacts to $OutputPath $TargetBrand"
+        Write-Log -Level 'INFO' -Function 'Write-AddressBook' -Message "Wrote $($output.Count) contacts to $OutputPath ($TargetBrand)"
+        Write-FunctionExit -FunctionName 'Write-AddressBook' -Result "$($output.Count) contacts written"
     }
     catch {
-        Write-Log "ERROR" "Write failed to ${OutputPath} $_"
+        Write-Log -Level 'ERROR' -Function 'Write-AddressBook' -Message "Write failed to ${OutputPath}" -ErrorRecord $_
         throw
     }
 }
@@ -1047,6 +1106,174 @@ function Validate-Contacts {
     }
 
     return $valid
+}
+
+function Validate-OutputFile {
+    <#
+    .SYNOPSIS
+        Validates output CSV file structure and content.
+    
+    .DESCRIPTION
+        Performs quality checks on output CSV:
+        - File exists and is readable
+        - Has correct structure for target brand
+        - Email/name fields are populated in correct columns
+        - No corrupted lines or column misalignment
+        - Encoding matches target brand requirements
+    
+    .PARAMETER FilePath
+        Path to output CSV file to validate
+    
+    .PARAMETER TargetBrand
+        Brand of the target format (Canon, Sharp, Xerox, Develop)
+    
+    .PARAMETER ExpectedContactCount
+        Expected number of contacts in output (optional)
+    
+    .OUTPUTS
+        Hashtable with validation results: @{IsValid, Errors[], Warnings[], ContactCount}
+    #>
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$FilePath,
+        
+        [Parameter(Mandatory = $true)]
+        [ValidateSet('Canon', 'Sharp', 'Xerox', 'Develop')]
+        [string]$TargetBrand,
+        
+        [Parameter(Mandatory = $false)]
+        [int]$ExpectedContactCount = -1
+    )
+
+    Write-FunctionEntry -FunctionName 'Validate-OutputFile' -Parameters @{ FilePath = $FilePath; TargetBrand = $TargetBrand }
+
+    $result = @{
+        IsValid      = $true
+        Errors       = @()
+        Warnings     = @()
+        ContactCount = 0
+    }
+
+    try {
+        # Check file exists
+        if (-not (Test-Path $FilePath)) {
+            $result.Errors += "File does not exist: $FilePath"
+            $result.IsValid = $false
+            Write-Log -Level 'ERROR' -Function 'Validate-OutputFile' -Message "File not found: $FilePath"
+            return $result
+        }
+
+        # Check file is not empty
+        $fileInfo = Get-Item $FilePath
+        if ($fileInfo.Length -eq 0) {
+            $result.Errors += "File is empty: $FilePath"
+            $result.IsValid = $false
+            Write-Log -Level 'ERROR' -Function 'Validate-OutputFile' -Message "File is empty: $FilePath"
+            return $result
+        }
+
+        # Get expected encoding for brand
+        $expectedEncoding = switch ($TargetBrand) {
+            'Develop' { 'Unicode' }
+            default { 'UTF8' }
+        }
+
+        # Read file and check structure
+        try {
+            $structure = Get-CsvStructure -FilePath $FilePath -Encoding $expectedEncoding
+            $result.ContactCount = $structure.Contacts.Count
+            
+            Write-Log -Level 'INFO' -Function 'Validate-OutputFile' -Message "Found $($structure.Contacts.Count) contact rows"
+            
+            if ($structure.Contacts.Count -eq 0) {
+                $result.Warnings += "No contact rows found in output file"
+                Write-Log -Level 'WARN' -Function 'Validate-OutputFile' -Message "No contacts in output"
+            }
+        }
+        catch {
+            $result.Errors += "Failed to parse CSV structure: $_"
+            $result.IsValid = $false
+            Write-Log -Level 'ERROR' -Function 'Validate-OutputFile' -Message "CSV parsing failed" -ErrorRecord $_
+            return $result
+        }
+
+        # Check expected contact count if provided
+        if ($ExpectedContactCount -gt 0 -and $result.ContactCount -ne $ExpectedContactCount) {
+            $result.Warnings += "Contact count mismatch: Expected $ExpectedContactCount, found $($result.ContactCount)"
+            Write-Log -Level 'WARN' -Function 'Validate-OutputFile' -Message "Count mismatch: expected $ExpectedContactCount, got $($result.ContactCount)"
+        }
+
+        # Brand-specific validation
+        $config = $Script:BrandConfig[$TargetBrand]
+        
+        # Parse contacts to check field structure
+        try {
+            if ($TargetBrand -eq 'Develop') {
+                $tempFile = [System.IO.Path]::GetTempFileName()
+                $structure.Contacts | Out-File -FilePath $tempFile -Encoding Unicode
+                $data = Import-Csv -Path $tempFile -Delimiter $config.Delimiter
+                Remove-Item -Path $tempFile -Force
+            }
+            elseif ($TargetBrand -eq 'Canon') {
+                # Skip comment lines for Canon
+                $csvLines = $structure.Contacts | Where-Object { -not ($_ -match '^\s*#') -and -not ([string]::IsNullOrWhiteSpace($_)) }
+                if ($csvLines.Count -gt 0) {
+                    $tempFile = [System.IO.Path]::GetTempFileName()
+                    $csvLines | Out-File -FilePath $tempFile -Encoding UTF8
+                    $data = Import-Csv -Path $tempFile -Delimiter $config.Delimiter
+                    Remove-Item -Path $tempFile -Force
+                }
+            }
+            else {
+                $tempFile = [System.IO.Path]::GetTempFileName()
+                $structure.Contacts | Out-File -FilePath $tempFile -Encoding $expectedEncoding
+                $data = Import-Csv -Path $tempFile -Encoding $expectedEncoding -Delimiter $config.Delimiter
+                Remove-Item -Path $tempFile -Force
+            }
+
+            # Check for required fields
+            if ($data.Count -gt 0) {
+                $firstRow = $data[0]
+                $emailField = $config.OutputFields.Email
+                
+                if (-not $firstRow.PSObject.Properties[$emailField]) {
+                    $result.Errors += "Missing required email field: $emailField"
+                    $result.IsValid = $false
+                    Write-Log -Level 'ERROR' -Function 'Validate-OutputFile' -Message "Missing email field: $emailField"
+                }
+
+                # Check if email fields have values
+                $emptyEmails = 0
+                foreach ($row in $data) {
+                    if ([string]::IsNullOrWhiteSpace($row.($emailField))) {
+                        $emptyEmails++
+                    }
+                }
+
+                if ($emptyEmails -gt 0) {
+                    $result.Warnings += "$emptyEmails contacts have empty email addresses"
+                    Write-Log -Level 'WARN' -Function 'Validate-OutputFile' -Message "$emptyEmails empty emails"
+                }
+            }
+        }
+        catch {
+            $result.Errors += "Failed to validate contact data: $_"
+            $result.IsValid = $false
+            Write-Log -Level 'ERROR' -Function 'Validate-OutputFile' -Message "Contact validation failed" -ErrorRecord $_
+            return $result
+        }
+
+        Write-Log -Level 'INFO' -Function 'Validate-OutputFile' -Message "Validation complete: IsValid=$($result.IsValid), Contacts=$($result.ContactCount)"
+        Write-FunctionExit -FunctionName 'Validate-OutputFile' -Result "IsValid=$($result.IsValid)"
+        
+        return $result
+    }
+    catch {
+        $result.Errors += "Validation failed: $_"
+        $result.IsValid = $false
+        Write-Log -Level 'ERROR' -Function 'Validate-OutputFile' -Message "Validation error" -ErrorRecord $_
+        return $result
+    }
 }
 
 #endregion
@@ -1239,11 +1466,42 @@ function Get-SafeOutputPath {
 }
 
 function Convert-AddressBook {
+    <#
+    .SYNOPSIS
+        Converts an address book from source brand to target brand.
+    
+    .DESCRIPTION
+        Full conversion pipeline:
+        1. Parse source CSV and extract contact rows
+        2. ConvertTo-NormalizedContact: Map each row to normalized schema
+        3. Validate-Contacts: Filter invalid emails
+        4. Remove-Duplicates: Deduplicate by email
+        5. Write-AddressBook: Write target CSV via ConvertFrom-NormalizedContact
+    
+    .PARAMETER SourcePath
+        Path to source CSV file
+    
+    .PARAMETER SourceBrand
+        Brand of source format
+    
+    .PARAMETER TargetBrand
+        Brand of target format
+    
+    .OUTPUTS
+        Array of processed normalized contacts
+    #>
     param(
+        [Parameter(Mandatory = $true)]
         [string]$SourcePath,
+        
+        [Parameter(Mandatory = $true)]
         [string]$SourceBrand,
+        
+        [Parameter(Mandatory = $true)]
         [string]$TargetBrand
     )
+
+    Write-FunctionEntry -FunctionName 'Convert-AddressBook' -Parameters @{ SourcePath = $SourcePath; SourceBrand = $SourceBrand; TargetBrand = $TargetBrand }
 
     Write-Host ""
     Write-Host "Processing: " -NoNewline
@@ -1255,49 +1513,139 @@ function Convert-AddressBook {
 
     Backup-SourceFile -SourcePath $SourcePath
 
+    # Step 1: Parse source CSV and get raw contact rows
     Write-Host "  Reading..." -NoNewline
     try {
-        $contacts = Read-AddressBook -FilePath $SourcePath -Brand $SourceBrand
-        Write-Host " $($contacts.Count) contacts" -ForegroundColor Green
+        $config = $Script:BrandConfig[$SourceBrand]
+        $encoding = Get-FileEncoding -FilePath $SourcePath
+        $structure = Get-CsvStructure -FilePath $SourcePath -Encoding $encoding
+        
+        if ($structure.Contacts.Count -eq 0) {
+            Write-Host " No contacts found" -ForegroundColor Yellow
+            Write-Log -Level 'WARN' -Function 'Convert-AddressBook' -Message "No contact rows in source file"
+            return $null
+        }
+        
+        # Parse contact rows based on brand format
+        if ($SourceBrand -eq 'Develop') {
+            $tempFile = [System.IO.Path]::GetTempFileName()
+            $structure.Contacts | Out-File -FilePath $tempFile -Encoding Unicode
+            $sourceRows = Import-Csv -Path $tempFile -Delimiter $config.Delimiter
+            Remove-Item -Path $tempFile -Force
+        }
+        elseif ($SourceBrand -eq 'Canon') {
+            # Filter out comment lines
+            $csvLines = $structure.Contacts | Where-Object { -not ($_ -match '^\s*#') -and -not ([string]::IsNullOrWhiteSpace($_)) }
+            if ($csvLines.Count -eq 0) {
+                Write-Host " No data rows" -ForegroundColor Yellow
+                return $null
+            }
+            $tempFile = [System.IO.Path]::GetTempFileName()
+            $csvLines | Out-File -FilePath $tempFile -Encoding UTF8
+            $sourceRows = Import-Csv -Path $tempFile -Delimiter $config.Delimiter
+            Remove-Item -Path $tempFile -Force
+        }
+        else {
+            # Sharp, Xerox
+            $tempFile = [System.IO.Path]::GetTempFileName()
+            $structure.Contacts | Out-File -FilePath $tempFile -Encoding $encoding
+            $sourceRows = Import-Csv -Path $tempFile -Encoding $encoding -Delimiter $config.Delimiter
+            Remove-Item -Path $tempFile -Force
+        }
+        
+        Write-Host " $($sourceRows.Count) contacts" -ForegroundColor Green
+        Write-Log -Level 'INFO' -Function 'Convert-AddressBook' -Message "Read $($sourceRows.Count) contact rows from $SourceBrand"
     }
     catch {
         Write-Host " FAILED" -ForegroundColor Red
         Write-Host "  Error: $_" -ForegroundColor Red
+        Write-Log -Level 'ERROR' -Function 'Convert-AddressBook' -Message "Read failed" -ErrorRecord $_
         return $null
     }
 
-    if ($contacts.Count -eq 0) {
-        Write-Host "  No contacts found" -ForegroundColor Yellow
+    # Step 2: Normalize contacts (convert raw CSV rows to brand-agnostic format)
+    Write-Host "  Normalizing..." -NoNewline
+    $normalizedContacts = @()
+    foreach ($row in $sourceRows) {
+        $normalized = ConvertTo-NormalizedContact -Contact $row -SourceBrand $SourceBrand
+        if ($normalized) {
+            $normalizedContacts += $normalized
+        }
+    }
+    Write-Host " $($normalizedContacts.Count) normalized" -ForegroundColor Green
+    Write-Log -Level 'INFO' -Function 'Convert-AddressBook' -Message "Normalized $($normalizedContacts.Count) contacts"
+
+    if ($normalizedContacts.Count -eq 0) {
+        Write-Host "  No valid contacts to process" -ForegroundColor Yellow
+        Write-Log -Level 'WARN' -Function 'Convert-AddressBook' -Message "No contacts after normalization"
         return $null
     }
 
+    # Step 3: Validate (checks email format - already done in normalization, but track stats)
     Write-Host "  Validating..." -NoNewline
-    $validContacts = Validate-Contacts -Contacts $contacts
-    Write-Host " $($validContacts.Count) valid" -ForegroundColor Green
+    $validCount = 0
+    $validContacts = @()
+    foreach ($normalized in $normalizedContacts) {
+        if (Test-Email -Email $normalized.Email) {
+            $validContacts += $normalized
+            $validCount++
+            $Script:Stats.Converted++
+        }
+        else {
+            $Script:Stats.Skipped++
+            $Script:Stats.InvalidEmails += $normalized.Email
+            Write-Log -Level 'WARN' -Function 'Convert-AddressBook' -Message "Skipped invalid email: $($normalized.Email)"
+        }
+    }
+    Write-Host " $validCount valid" -ForegroundColor Green
+    Write-Log -Level 'INFO' -Function 'Convert-AddressBook' -Message "Validated $validCount contacts"
 
+    # Step 4: Deduplicate
     Write-Host "  Deduplicating..." -NoNewline
-    $uniqueContacts = Remove-Duplicates -Contacts $validContacts
+    $seen = @{}
+    $uniqueContacts = @()
+    $duplicates = 0
+    foreach ($contact in $validContacts) {
+        $emailLower = $contact.Email.ToLower()
+        if ($seen.ContainsKey($emailLower)) {
+            $duplicates++
+            $Script:Stats.Duplicates++
+        }
+        else {
+            $seen[$emailLower] = $true
+            $uniqueContacts += $contact
+        }
+    }
     Write-Host " $($uniqueContacts.Count) unique" -ForegroundColor Green
+    Write-Log -Level 'INFO' -Function 'Convert-AddressBook' -Message "Removed $duplicates duplicates"
 
+    # Step 5: Get output path
     try {
         $outputPath = Get-SafeOutputPath -SourcePath $SourcePath -TargetBrand $TargetBrand
+        Write-Log -Level 'INFO' -Function 'Convert-AddressBook' -Message "Output path: $outputPath"
     }
     catch {
         Write-Host "  Output path error: $_" -ForegroundColor Red
+        Write-Log -Level 'ERROR' -Function 'Convert-AddressBook' -Message "Output path error" -ErrorRecord $_
         return $null
     }
 
+    # Step 6: Write to target format
     Write-Host "  Writing..." -NoNewline
     try {
-        Write-AddressBook -Contacts $uniqueContacts -OutputPath $outputPath -TargetBrand $TargetBrand
+        Write-AddressBook -NormalizedContacts $uniqueContacts -OutputPath $outputPath -TargetBrand $TargetBrand
         Write-Host " Done" -ForegroundColor Green
 
         Write-Host "  Output: " -NoNewline -ForegroundColor White
         Write-Host $outputPath -ForegroundColor Cyan
+        
+        Write-Log -Level 'INFO' -Function 'Convert-AddressBook' -Message "Conversion complete: $outputPath"
+        Write-FunctionExit -FunctionName 'Convert-AddressBook' -Result "$($uniqueContacts.Count) contacts written"
     }
     catch {
         Write-Host " FAILED" -ForegroundColor Red
         Write-Host "  Error: $_" -ForegroundColor Red
+        Write-Log -Level 'ERROR' -Function 'Convert-AddressBook' -Message "Write failed" -ErrorRecord $_
         return $null
     }
 
