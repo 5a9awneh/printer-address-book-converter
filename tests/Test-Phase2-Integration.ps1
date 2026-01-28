@@ -1,12 +1,13 @@
 <#
 .SYNOPSIS
-    Phase 2.3 Integration Tests - Multi-Brand Conversions
+    Phase 2.3 Comprehensive Integration Tests - All 13 CSV Files
 
 .DESCRIPTION
-    Tests end-to-end conversion pipeline using real CSV files:
+    Tests end-to-end conversion pipeline using ALL real CSV files:
     - Read from source brand → Normalize → Convert to target brand
     - Verify data integrity across all brand-pair combinations
     - Validate email and name field mapping accuracy
+    - Tests 13 source files × 3 target brands each = 39 conversions
 #>
 
 param(
@@ -14,16 +15,34 @@ param(
 )
 
 Write-Host ""
-Write-Host "===============================================" -ForegroundColor Cyan
-Write-Host "  Phase 2.3: Multi-Brand Integration Tests" -ForegroundColor Cyan
-Write-Host "===============================================" -ForegroundColor Cyan
+Write-Host "================================================================" -ForegroundColor Cyan
+Write-Host "  Phase 2.3: Comprehensive Multi-Brand Integration Tests" -ForegroundColor Cyan
+Write-Host "  Testing ALL 13 CSV files across all brand-pair combinations" -ForegroundColor Cyan
+Write-Host "================================================================" -ForegroundColor Cyan
 Write-Host ""
 
+# Test all 13 CSV files with minimum expected contacts
 $testFiles = @(
-    @{ File = '10.52.18.11_Canon_iR-ADV C3930.csv'; Brand = 'Canon'; ExpectedContacts = 17 }
-    @{ File = '10.52.18.101_SHARP_BP-50C31.csv'; Brand = 'Sharp'; ExpectedContacts = 15 }
-    @{ File = '10.52.18.148_Xerox VersaLink C7130.csv'; Brand = 'Xerox'; ExpectedContacts = 4 }
-    @{ File = '10.52.18.144_bizhub C360i.csv'; Brand = 'Develop'; ExpectedContacts = 16 }
+    # Canon files
+    @{ File = '10.52.18.11_Canon_iR-ADV C3930.csv'; Brand = 'Canon'; ExpectedMin = 15 }
+    @{ File = '10.52.18.12_Canon iR-ADV C3930.csv'; Brand = 'Canon'; ExpectedMin = 15 }
+    @{ File = '10.52.18.18_Canon_imageFORCE 6160.csv'; Brand = 'Canon'; ExpectedMin = 1 }
+    
+    # Sharp files
+    @{ File = '10.52.18.101_SHARP_BP-50C31.csv'; Brand = 'Sharp'; ExpectedMin = 12 }
+    @{ File = '10.52.18.61_SHARP_MX-3051.csv'; Brand = 'Sharp'; ExpectedMin = 1 }
+    @{ File = '10.52.30.242_SHARP_MX-5051.csv'; Brand = 'Sharp'; ExpectedMin = 1 }
+    
+    # Xerox files
+    @{ File = '10.52.18.148_Xerox VersaLink C7130.csv'; Brand = 'Xerox'; ExpectedMin = 3 }
+    @{ File = '10.52.18.45_Xerox AltaLink B8170.csv'; Brand = 'Xerox'; ExpectedMin = 1 }
+    
+    # Develop files
+    @{ File = '10.52.18.144_bizhub C360i.csv'; Brand = 'Develop'; ExpectedMin = 5 }
+    @{ File = '10.52.18.40_Develop ineo+ 224e.csv'; Brand = 'Develop'; ExpectedMin = 1 }
+    @{ File = '10.52.18.57_Develop ineo+ 308.csv'; Brand = 'Develop'; ExpectedMin = 1 }
+    @{ File = '10.52.30.246_Develop ineo+ 308_V2.csv'; Brand = 'Develop'; ExpectedMin = 1 }
+    @{ File = '10.52.18.43_Generic 22C-6e.csv'; Brand = 'Develop'; ExpectedMin = 1 }
 )
 
 $targetBrands = @('Canon', 'Sharp', 'Xerox', 'Develop')
@@ -58,8 +77,11 @@ foreach ($funcName in $functions) {
 
 $totalTests = 0
 $passedTests = 0
+$totalSourceFiles = 0
+$processedSourceFiles = 0
 
 foreach ($testFile in $testFiles) {
+    $totalSourceFiles++
     $sourcePath = Join-Path "$PSScriptRoot\source_exports" $testFile.File
     
     if (-not (Test-Path $sourcePath)) {
@@ -67,6 +89,7 @@ foreach ($testFile in $testFiles) {
         continue
     }
     
+    $processedSourceFiles++
     $sourceBrand = $testFile.Brand
     
     Write-Host "Source: $sourceBrand - $($testFile.File)" -ForegroundColor Cyan
@@ -133,7 +156,13 @@ foreach ($testFile in $testFiles) {
             }
         }
         
-        Write-Host "  Parsed: $($normalized.Count) contacts (expected: $($testFile.ExpectedContacts))" -ForegroundColor Gray
+        $expectedMin = $testFile.ExpectedMin
+        if ($normalized.Count -ge $expectedMin) {
+            Write-Host "  Parsed: $($normalized.Count) contacts (expected: >=$expectedMin)" -ForegroundColor Gray
+        }
+        else {
+            Write-Host "  [WARN] Parsed only $($normalized.Count) contacts (expected: >=$expectedMin)" -ForegroundColor Yellow
+        }
         
         # Test conversion to each target brand
         foreach ($targetBrand in $targetBrands) {
@@ -190,18 +219,20 @@ foreach ($testFile in $testFiles) {
 }
 
 # Summary
-Write-Host "===============================================" -ForegroundColor Cyan
+Write-Host "================================================================" -ForegroundColor Cyan
 Write-Host "  Test Summary" -ForegroundColor Cyan
-Write-Host "===============================================" -ForegroundColor Cyan
+Write-Host "================================================================" -ForegroundColor Cyan
 Write-Host ""
-Write-Host "  Total Brand-Pair Tests: $totalTests"
+Write-Host "  Total Source Files: $totalSourceFiles"
+Write-Host "  Processed Successfully: $processedSourceFiles"
+Write-Host "  Total Brand-Pair Conversions: $totalTests"
 Write-Host "  Passed: $passedTests" -ForegroundColor Green
 Write-Host "  Failed: $($totalTests - $passedTests)" -ForegroundColor $(if ($passedTests -eq $totalTests) { 'Green' } else { 'Red' })
 Write-Host ""
 
-if ($passedTests -eq $totalTests) {
+if ($passedTests -eq $totalTests -and $processedSourceFiles -eq $totalSourceFiles) {
     Write-Host "  Phase 2.3: ALL TESTS PASSED" -ForegroundColor Green
-    Write-Host "  All brand-pair combinations validated!" -ForegroundColor Green
+    Write-Host "  All $processedSourceFiles source files x brand conversions validated!" -ForegroundColor Green
     exit 0
 }
 else {
