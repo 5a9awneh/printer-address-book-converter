@@ -174,15 +174,15 @@ Add optional post-processing features and comprehensive test suite.
 
 ---
 
-## Summary (5/5)** |
+## Summary
+
+| Phase | Tasks | Focus | Est. Time | Actual Time | Status |
+|-------|-------|-------|-----------|-------------|--------|
+| **1** | **1.1–1.5** | **Parsing + CLI + Logging** | **1 h 50 min** | **1 h 50 min** | **✅ COMPLETE (5/5)** |
 | **2** | **2.1–2.3** | **Field mapping & normalization** | **1 h 10 min** | **1 h 20 min** | **✅ COMPLETE (3/3)** |
 | **3** | **3.1–3.3** | **Output writing & integration** | **1 h 5 min** | **1 h 5 min** | **✅ COMPLETE (3/3)** |
 | 4     | 4.1–4.5 | Dedup, Outlook, testing, docs, UI validation | 2 h 15 min | — | Not started (0/5) |
-| **Total** | **18 tasks** | **End-to-end refactor + testing** | **~6 h 20 min**1 h 50 min** | **✅ COMPLETE** |
-| **2** | **2.1–2.4** | **Field mapping + normalization + interactive tests** | **1 h 30 min** | **1 h 20 min** | **⏳ 3/4 tasks** |
-| 3     | 3.1–3.3 | Output writing & integration | 1 h 5 min | — | Not started |
-| 4     | 4.1–4.5 | Dedup, Outlook, testing, docs | 1 h 55 min | — | Not started |
-| **Total** | **18 tasks** | **End-to-end refactor + testing** | **~6 h** | **~3 h 10 min** | **8/18 tasks (44%)** |
+| **Total** | **18 tasks** | **End-to-end refactor + testing** | **~6 h 20 min** | **~4 h 15 min** | **11/18 tasks (61%)** |
 
 ---
 
