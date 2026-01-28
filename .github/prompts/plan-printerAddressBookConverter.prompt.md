@@ -95,14 +95,6 @@ Build normalized mapping layer for email and name fields.
 - **Time**: 25 min → **Actual: 45 min** (expanded to 13 files, fixed CSV parsing edge cases)
 - **Completed**: 2026-01-28
 
-### 2.4 Interactive workflow testing (moved from Phase 4.4)
-- **Files**: `tests/Test-Interactive.ps1` (new)
-- **Creates**: Manual interactive workflow validation script
-- **Description**: Create guided interactive test for manual validation of user workflows: file selection dialogs, menu navigation, mode selection (Single/Batch/Merge), conversion execution, backup/restore validation. Tests actual UI/UX experience including dialog foreground behavior.
-- **Acceptance Criteria**: Dialog appears in foreground. All menu options work correctly. File selection is intuitive. Success/error messages are clear. Backup/restore functions properly.
-- **Time**: 20 min
-- **Note**: Moved earlier due to dialog display issues during manual testing
-
 ---
 
 ## Phase 3: Output Writing & Converter Integration
@@ -162,9 +154,13 @@ Add optional post-processing features and comprehensive test suite.
 - **Acceptance Criteria**: Test suite runs without errors. All conversions pass validation. Edge cases handled gracefully.
 - **Time**: 45 min
 
-### 4.4 Create integration test with user workflows ✅ MOVED TO 2.4
-- **Status**: Moved to Task 2.4 (Phase 2) due to immediate need for UI validation
-- **See**: Task 2.4 for implementation details
+### 4.4 Interactive workflow testing (end-to-end manual validation)
+- **Files**: `tests/Test-Interactive.ps1` (created in Phase 2)
+- **Executes**: Manual interactive workflow validation script
+- **Description**: Execute guided interactive test for manual validation of complete user workflows after all backend implementation: file selection dialogs, menu navigation, mode selection (Single/Batch/Merge), conversion execution, backup/restore validation. Tests actual UI/UX experience including dialog foreground behavior. **Deferred to end** to perform complete validation only once after all features implemented.
+- **Acceptance Criteria**: Dialog appears in foreground. All menu options work correctly. File selection is intuitive. Success/error messages are clear. Backup/restore functions properly. All workflows complete end-to-end successfully.
+- **Time**: 20 min
+- **Note**: Test file already created, execution deferred to final validation phase
 
 ### 4.5 Refine menu and documentation
 - **Files**: `Convert-PrinterAddressBook.ps1`, `README.md`
@@ -175,11 +171,11 @@ Add optional post-processing features and comprehensive test suite.
 
 ---
 
-## Summary
-
-| Phase | Tasks | Focus | Est. Time | Actual Time | Status |
-|-------|-------|-------|-----------|-------------|--------|
-| **1** | **1.1–1.5** | **Parsing + CLI + Logging** | **1 h 50 min** | **1 h 50 min** | **✅ COMPLETE** |
+## Summary (5/5)** |
+| **2** | **2.1–2.3** | **Field mapping & normalization** | **1 h 10 min** | **1 h 20 min** | **✅ COMPLETE (3/3)** |
+| 3     | 3.1–3.3 | Output writing & integration | 1 h 5 min | — | Not started (0/3) |
+| 4     | 4.1–4.5 | Dedup, Outlook, testing, docs, UI validation | 2 h 15 min | — | Not started (0/5) |
+| **Total** | **18 tasks** | **End-to-end refactor + testing** | **~6 h 20 min**1 h 50 min** | **✅ COMPLETE** |
 | **2** | **2.1–2.4** | **Field mapping + normalization + interactive tests** | **1 h 30 min** | **1 h 20 min** | **⏳ 3/4 tasks** |
 | 3     | 3.1–3.3 | Output writing & integration | 1 h 5 min | — | Not started |
 | 4     | 4.1–4.5 | Dedup, Outlook, testing, docs | 1 h 55 min | — | Not started |
