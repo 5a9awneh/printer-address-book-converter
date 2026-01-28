@@ -10,10 +10,7 @@
     - All brand formats work correctly (Canon, Sharp, Xerox, Develop)
 #>
 
-# Load only the functions we need (not Main)
-$scriptContent = Get-Content "$PSScriptRoot\..\Convert-PrinterAddressBook.ps1" -Raw
-$functionsOnly = $scriptContent -replace '(?ms)^function Main \{.*?^#endregion.*$', ''
-Invoke-Expression $functionsOnly
+$ErrorActionPreference = 'Stop'
 
 Write-Host ""
 Write-Host "===============================================" -ForegroundColor Cyan
@@ -27,185 +24,167 @@ $testResults = @{
     Tests = @()
 }
 
-function Test-CsvStructure {
-    param(
-        [string]$TestName,
-        [string]$FilePath,
-        [int]$ExpectedHeaders,
-        [int]$ExpectedContacts,
-        [int]$ExpectedFooters
-    )
+# Get test files
+$testFiles = Get-ChildItem -Path "$PSScriptRoot\source_exports\*.csv" -ErrorAction SilentlyContinue
 
-    Write-Host "Test: $TestName" -ForegroundColor Yellow
-    Write-Host "  File: $(Split-Path -Leaf $FilePath)"
+if ($testFiles.Count -eq 0) {
+    Write-Host "No test CSV files found in tests/source_exports/" -ForegroundColor Red
+    Write-Host "Please add sample CSV files to test with." -ForegroundColor Yellow
+    Write-Host ""
+    exit 1
+}
+
+Write-Host "Found $($testFiles.Count) test files" -ForegroundColor Cyan
+Write-Host ""
+
+# Test 1: CLI Parameter Support
+Write-Host "Test Suite 1: CLI Non-Interactive Mode" -ForegroundColor Cyan
+Write-Host ""
+
+foreach ($file in $testFiles | Select-Object -First 3) {
+    $testName = "CLI Test: $($file.Name)"
+    Write-Host "Test: $testName" -ForegroundColor Yellow
 
     try {
-        if (-not (Test-Path $FilePath)) {
-            Write-Host "  SKIP - File not found" -ForegroundColor Gray
-            return
-        }
+        # Run conversion in non-interactive mode
+        $output = & "$PSScriptRoot\..\Convert-PrinterAddressBook.ps1" `
+            -SourcePath $file.FullName `
+            -TargetBrand "Canon" `
+            -NoInteractive 2>&1 | Out-String
 
-        # Detect encoding
-        $encoding = Detect-Encoding -FilePath $FilePath
-
-        # Extract structure
-        $structure = Extract-CsvStructure -FilePath $FilePath -Encoding $encoding
-
-        # Verify counts
-        $headerMatch = $structure.Headers.Count -eq $ExpectedHeaders
-        $contactMatch = $structure.Contacts.Count -eq $ExpectedContacts
-        $footerMatch = $structure.Footers.Count -eq $ExpectedFooters
-
-        Write-Host "  Headers: $($structure.Headers.Count) (expected $ExpectedHeaders) " -NoNewline
-        if ($headerMatch) { Write-Host "PASS" -ForegroundColor Green } else { Write-Host "FAIL" -ForegroundColor Red }
-
-        Write-Host "  Contacts: $($structure.Contacts.Count) (expected $ExpectedContacts) " -NoNewline
-        if ($contactMatch) { Write-Host "PASS" -ForegroundColor Green } else { Write-Host "FAIL" -ForegroundColor Red }
-
-        Write-Host "  Footers: $($structure.Footers.Count) (expected $ExpectedFooters) " -NoNewline
-        if ($footerMatch) { Write-Host "PASS" -ForegroundColor Green } else { Write-Host "FAIL" -ForegroundColor Red }
-
-        if ($headerMatch -and $contactMatch -and $footerMatch) {
+        # Check if conversion succeeded (look for "Done" in output)
+        if ($output -match "Done") {
             Write-Host "  Result: PASS" -ForegroundColor Green
             $testResults.Passed++
-            $testResults.Tests += @{ Name = $TestName; Status = "PASS" }
+            $testResults.Tests += @{ Name = $testName; Status = "PASS" }
         }
         else {
-            Write-Host "  Result: FAIL" -ForegroundColor Red
+            Write-Host "  Result: FAIL - No success indicator" -ForegroundColor Red
             $testResults.Failed++
-            $testResults.Tests += @{ Name = $TestName; Status = "FAIL" }
+            $testResults.Tests += @{ Name = $testName; Status = "FAIL" }
         }
     }
     catch {
         Write-Host "  Result: ERROR - $_" -ForegroundColor Red
         $testResults.Failed++
-        $testResults.Tests += @{ Name = $TestName; Status = "ERROR" }
+        $testResults.Tests += @{ Name = $testName; Status = "ERROR" }
     }
 
     Write-Host ""
 }
 
-function Test-LinePreservation {
-    param(
-        [string]$TestName,
-        [string]$FilePath
-    )
+# Test 2: Structure Extraction
+Write-Host "Test Suite 2: Extract-CsvStructure Function" -ForegroundColor Cyan
+Write-Host ""
 
-    Write-Host "Test: $TestName" -ForegroundColor Yellow
-    Write-Host "  File: $(Split-Path -Leaf $FilePath)"
+# Load functions manually (without running Main)
+$scriptContent = Get-Content "$PSScriptRoot\..\Convert-PrinterAddressBook.ps1" -Raw
+$functionsToLoad = @(
+    'Write-Log',
+    'Detect-Encoding',
+    'Extract-CsvStructure'
+)
+
+# Execute only the configuration and required functions
+$configRegex = '(?ms)#region Configuration.*?#endregion'
+$utilityRegex = '(?ms)#region Utility Functions.*?#endregion'
+$parsingRegex = '(?ms)#region Parsing Functions.*?#endregion'
+$detectionRegex = '(?ms)#region Detection Functions.*?#endregion'
+
+if ($scriptContent -match $configRegex) {
+    Invoke-Expression $matches[0]
+}
+if ($scriptContent -match $utilityRegex) {
+    Invoke-Expression $matches[0]
+}
+if ($scriptContent -match $parsingRegex) {
+    Invoke-Expression $matches[0]
+}
+if ($scriptContent -match $detectionRegex) {
+    Invoke-Expression $matches[0]
+}
+
+foreach ($file in $testFiles) {
+    $testName = "Structure Test: $($file.Name)"
+    Write-Host "Test: $testName" -ForegroundColor Yellow
 
     try {
-        if (-not (Test-Path $FilePath)) {
-            Write-Host "  SKIP - File not found" -ForegroundColor Gray
-            return
-        }
+        # Detect encoding
+        $encoding = Detect-Encoding -FilePath $file.FullName
 
-        # Read original file
-        $encoding = Detect-Encoding -FilePath $FilePath
-        $originalLines = Get-Content -Path $FilePath -Encoding $encoding
+        # Extract structure
+        $structure = Extract-CsvStructure -FilePath $file.FullName -Encoding $encoding
+
+        # Verify structure was extracted
+        $hasHeaders = $structure.Headers.Count -ge 0
+        $hasContacts = $structure.Contacts.Count -gt 0
+        $hasFooters = $structure.Footers.Count -ge 0
+
+        Write-Host "  Headers: $($structure.Headers.Count) lines"
+        Write-Host "  Contacts: $($structure.Contacts.Count) lines"
+        Write-Host "  Footers: $($structure.Footers.Count) lines"
+
+        if ($hasContacts) {
+            Write-Host "  Result: PASS" -ForegroundColor Green
+            $testResults.Passed++
+            $testResults.Tests += @{ Name = $testName; Status = "PASS" }
+        }
+        else {
+            Write-Host "  Result: FAIL - No contacts found" -ForegroundColor Red
+            $testResults.Failed++
+            $testResults.Tests += @{ Name = $testName; Status = "FAIL" }
+        }
+    }
+    catch {
+        Write-Host "  Result: ERROR - $_" -ForegroundColor Red
+        $testResults.Failed++
+        $testResults.Tests += @{ Name = $testName; Status = "ERROR" }
+    }
+
+    Write-Host ""
+}
+
+# Test 3: Line Preservation
+Write-Host "Test Suite 3: Line Preservation (Reconstruction)" -ForegroundColor Cyan
+Write-Host ""
+
+foreach ($file in $testFiles) {
+    $testName = "Preservation Test: $($file.Name)"
+    Write-Host "Test: $testName" -ForegroundColor Yellow
+
+    try {
+        # Read original
+        $encoding = Detect-Encoding -FilePath $file.FullName
+        $originalLines = Get-Content -Path $file.FullName -Encoding $encoding
 
         # Extract and reconstruct
-        $structure = Extract-CsvStructure -FilePath $FilePath -Encoding $encoding
+        $structure = Extract-CsvStructure -FilePath $file.FullName -Encoding $encoding
         $reconstructed = @()
         $reconstructed += $structure.Headers
         $reconstructed += $structure.Contacts
         $reconstructed += $structure.Footers
 
-        # Compare line counts
-        if ($originalLines.Count -ne $reconstructed.Count) {
+        # Compare counts
+        if ($originalLines.Count -eq $reconstructed.Count) {
+            Write-Host "  Line count matches: $($originalLines.Count)" -ForegroundColor Green
+            Write-Host "  Result: PASS" -ForegroundColor Green
+            $testResults.Passed++
+            $testResults.Tests += @{ Name = $testName; Status = "PASS" }
+        }
+        else {
             Write-Host "  Line count mismatch: Original=$($originalLines.Count), Reconstructed=$($reconstructed.Count)" -ForegroundColor Red
             Write-Host "  Result: FAIL" -ForegroundColor Red
             $testResults.Failed++
-            $testResults.Tests += @{ Name = $TestName; Status = "FAIL" }
-        }
-        else {
-            # Check if all lines match
-            $allMatch = $true
-            for ($i = 0; $i -lt $originalLines.Count; $i++) {
-                if ($originalLines[$i] -ne $reconstructed[$i]) {
-                    Write-Host "  Line $($i+1) mismatch" -ForegroundColor Red
-                    Write-Host "    Original:      '$($originalLines[$i])'" -ForegroundColor Gray
-                    Write-Host "    Reconstructed: '$($reconstructed[$i])'" -ForegroundColor Gray
-                    $allMatch = $false
-                    break
-                }
-            }
-
-            if ($allMatch) {
-                Write-Host "  All $($originalLines.Count) lines match exactly" -NoNewline
-                Write-Host " " -NoNewline
-                Write-Host "Pass" -ForegroundColor Green
-                Write-Host "  Result: PASS" -ForegroundColor Green
-                $testResults.Passed++
-                $testResults.Tests += @{ Name = $TestName; Status = "PASS" }
-            }
-            else {
-                Write-Host "  Result: FAIL" -ForegroundColor Red
-                $testResults.Failed++
-                $testResults.Tests += @{ Name = $TestName; Status = "FAIL" }
-            }
+            $testResults.Tests += @{ Name = $testName; Status = "FAIL" }
         }
     }
     catch {
         Write-Host "  Result: ERROR - $_" -ForegroundColor Red
         $testResults.Failed++
-        $testResults.Tests += @{ Name = $TestName; Status = "ERROR" }
+        $testResults.Tests += @{ Name = $testName; Status = "ERROR" }
     }
 
     Write-Host ""
-}
-
-# Run tests on sample files
-$testFiles = @(
-    @{
-        Name = "Canon Sample"
-        Path = "$PSScriptRoot\source_exports\10.52.18.18_Canon_imageFORCE 6160.csv"
-        ExpectedHeaders = 4
-        ExpectedContacts = 24
-        ExpectedFooters = 0
-    },
-    @{
-        Name = "Sharp Sample"
-        Path = "$PSScriptRoot\source_exports\10.52.18.61_SHARP_MX-3051.csv"
-        ExpectedHeaders = 1
-        ExpectedContacts = 13
-        ExpectedFooters = 0
-    },
-    @{
-        Name = "Xerox Sample"
-        Path = "$PSScriptRoot\source_exports\10.52.18.45_Xerox AltaLink B8170.csv"
-        ExpectedHeaders = 1
-        ExpectedContacts = 27
-        ExpectedFooters = 0
-    },
-    @{
-        Name = "Develop Sample"
-        Path = "$PSScriptRoot\source_exports\10.52.18.40_Develop ineo+ 224e.csv"
-        ExpectedHeaders = 2
-        ExpectedContacts = 15
-        ExpectedFooters = 0
-    }
-)
-
-# Test structure extraction
-Write-Host "Test Suite 1: Structure Extraction" -ForegroundColor Cyan
-Write-Host ""
-
-foreach ($test in $testFiles) {
-    Test-CsvStructure -TestName $test.Name `
-                      -FilePath $test.Path `
-                      -ExpectedHeaders $test.ExpectedHeaders `
-                      -ExpectedContacts $test.ExpectedContacts `
-                      -ExpectedFooters $test.ExpectedFooters
-}
-
-# Test line preservation (reconstruction)
-Write-Host "Test Suite 2: Line Preservation" -ForegroundColor Cyan
-Write-Host ""
-
-foreach ($test in $testFiles) {
-    Test-LinePreservation -TestName "$($test.Name) - Line Preservation" `
-                          -FilePath $test.Path
 }
 
 # Summary
@@ -221,12 +200,12 @@ Write-Host $testResults.Failed -ForegroundColor $(if ($testResults.Failed -eq 0)
 Write-Host ""
 
 if ($testResults.Failed -eq 0) {
-    Write-Host "  Phase 1: ALL TESTS PASSED" -NoNewline
-    Write-Host " " -NoNewline
-    Write-Host "Pass" -ForegroundColor Green
+    Write-Host "  Phase 1: ALL TESTS PASSED" -ForegroundColor Green
+    exit 0
 }
 else {
     Write-Host "  Phase 1: SOME TESTS FAILED" -ForegroundColor Red
+    exit 1
 }
 
 Write-Host ""

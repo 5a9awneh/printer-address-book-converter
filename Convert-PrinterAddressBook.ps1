@@ -6,6 +6,26 @@
     Converts printer address book files between Canon, Sharp, Xerox, and Develop/Konica formats.
     Auto-detects source format and handles validation, deduplication, and backups.
 
+.PARAMETER SourcePath
+    Path to source CSV file (for non-interactive mode)
+
+.PARAMETER TargetBrand
+    Target brand format: Canon, Sharp, Xerox, or Develop (for non-interactive mode)
+
+.PARAMETER Mode
+    Conversion mode: Single, Batch, or Merge (default: Single)
+
+.PARAMETER NoInteractive
+    Run in non-interactive mode without GUI prompts
+
+.EXAMPLE
+    .\Convert-PrinterAddressBook.ps1
+    Interactive mode with menu navigation
+
+.EXAMPLE
+    .\Convert-PrinterAddressBook.ps1 -SourcePath "export.csv" -TargetBrand "Canon" -NoInteractive
+    Non-interactive conversion to Canon format
+
 .NOTES
     Author: Faris Khasawneh
     Created: January 2026
@@ -27,7 +47,21 @@
 #>
 
 [CmdletBinding()]
-param()
+param(
+    [Parameter(Mandatory=$false)]
+    [string]$SourcePath,
+
+    [Parameter(Mandatory=$false)]
+    [ValidateSet('Canon', 'Sharp', 'Xerox', 'Develop')]
+    [string]$TargetBrand,
+
+    [Parameter(Mandatory=$false)]
+    [ValidateSet('Single', 'Batch', 'Merge')]
+    [string]$Mode = 'Single',
+
+    [Parameter(Mandatory=$false)]
+    [switch]$NoInteractive
+)
 
 #region Configuration
 
@@ -1022,6 +1056,56 @@ function Main {
 
     Write-Log "INFO" "Session started"
 
+    # Non-interactive mode
+    if ($NoInteractive -and $SourcePath -and $TargetBrand) {
+        Write-Host ""
+        Write-Host "===============================================================" -ForegroundColor Cyan
+        Write-Host "  NON-INTERACTIVE MODE" -ForegroundColor Cyan
+        Write-Host "===============================================================" -ForegroundColor Cyan
+        Write-Host ""
+
+        if (-not (Test-Path $SourcePath)) {
+            Write-Host "Error: Source file not found: $SourcePath" -ForegroundColor Red
+            Write-Host ""
+            return
+        }
+
+        if (-not (Test-SafePath -Path $SourcePath)) {
+            Write-Host "Error: Invalid file path: $SourcePath" -ForegroundColor Red
+            Write-Host ""
+            return
+        }
+
+        # Detect source brand
+        $detection = Detect-Brand -FilePath $SourcePath
+        if ($detection.Confidence -ne 100) {
+            Write-Host "Error: Could not auto-detect source brand for: $SourcePath" -ForegroundColor Red
+            Write-Host ""
+            return
+        }
+
+        $sourceBrand = $detection.Brand
+        Write-Host "Detected source: $sourceBrand" -ForegroundColor Green
+        Write-Host "Target brand: $TargetBrand" -ForegroundColor Green
+        Write-Host ""
+
+        Reset-Stats
+
+        $converted = Convert-AddressBook -SourcePath $SourcePath -SourceBrand $sourceBrand -TargetBrand $TargetBrand
+
+        if ($converted) {
+            Show-ValidationReport
+        }
+        else {
+            Write-Host "Conversion failed" -ForegroundColor Red
+        }
+
+        Write-Log "INFO" "Session completed (non-interactive)"
+        Write-Host ""
+        return
+    }
+
+    # Interactive mode (original behavior)
     $modeOptions = @(
         'Single File Conversion',
         'Batch Convert Multiple Files',
