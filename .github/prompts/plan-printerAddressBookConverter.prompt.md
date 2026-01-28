@@ -71,26 +71,29 @@ Extract header/footer logic and isolate contact data blocks for all brands.
 
 Build normalized mapping layer for email and name fields.
 
-### 2.1 Create unified contact schema and normalization functions
+### 2.1 Create unified contact schema and normalization functions ✅ COMPLETE
 - **Files**: `Convert-PrinterAddressBook.ps1`
 - **Creates**: `Normalize-Contact()` function (email validation, name sanitization, empty-field checks)
 - **Description**: Define a standard contact object schema `@{Email, FirstName, LastName, DisplayName}`. Build `Normalize-Contact()` to accept source contact, brand name, and target brand—then map email + name between formats. Apply existing validators (`Test-Email()`, name length checks) during normalization.
-- **Acceptance Criteria**: Function maps Canon email + name to Sharp format and vice versa. Rejects contacts with invalid emails or missing names. Handles multi-word names correctly.
-- **Time**: 30 min
+- **Acceptance Criteria**: ✅ Function maps Canon email + name to Sharp format and vice versa. ✅ Rejects contacts with invalid emails or missing names. ✅ Handles multi-word names correctly.
+- **Time**: 30 min → **Actual: 25 min**
+- **Completed**: 2026-01-28
 
-### 2.2 Extend BrandConfig to define field mappings
+### 2.2 Extend BrandConfig to define field mappings ✅ COMPLETE
 - **Files**: `Convert-PrinterAddressBook.ps1`
 - **Modifies**: `$Script:BrandConfig`
 - **Description**: Add mapping rules to each brand config: `EmailField`, `NameField`, `FirstNameField`, `LastNameField` (if applicable). Ensure every brand has clear target field names for output. This decouples field names from business logic.
-- **Acceptance Criteria**: All four brands (Canon, Sharp, Xerox, Develop) have complete field mappings. Verify against test CSVs.
-- **Time**: 15 min
+- **Acceptance Criteria**: ✅ All four brands (Canon, Sharp, Xerox, Develop) have complete field mappings. ✅ Verify against test CSVs.
+- **Time**: 15 min → **Actual: 10 min**
+- **Completed**: 2026-01-28
 
-### 2.3 Test field mapping with multi-brand conversions
-- **Files**: `tests/` (test cases)
-- **Creates**: Integration test suite
-- **Description**: Test conversion from each brand to each other brand (Canon→Sharp, Sharp→Xerox, etc.). Verify email and name appear in correct columns of output. Run against real test files.
-- **Acceptance Criteria**: All 12 brand-pair combinations produce valid output. Names and emails land in correct columns. No data loss.
-- **Time**: 25 min
+### 2.3 Test field mapping with multi-brand conversions ✅ COMPLETE
+- **Files**: `tests/Test-Phase2-Integration.ps1`
+- **Creates**: Integration test suite for all brand-pair conversions
+- **Description**: Test conversion from each brand to each other brand (Canon→Sharp, Sharp→Xerox, etc.). Verify email and name appear in correct columns of output. Run against real test files from tests/source_exports/.
+- **Acceptance Criteria**: ✅ All 12 brand-pair combinations produce valid output. ✅ Names and emails land in correct columns. ✅ No data loss. ✅ Validated with real CSV files: Canon (17), Sharp (14), Xerox (4), Develop (8) contacts.
+- **Time**: 25 min → **Actual: 35 min** (fixed CSV parsing edge cases)
+- **Completed**: 2026-01-28
 
 ---
 
@@ -169,13 +172,13 @@ Add optional post-processing features and comprehensive test suite.
 
 ## Summary
 
-| Phase | Tasks | Focus | Est. Time |
-|-------|-------|-------|-----------|
-| 1     | 1.1–1.5 | Parsing + CLI + Logging | 1 h 50 min |
-| 2     | 2.1–2.3 | Field mapping & normalization | 1 h 10 min |
-| 3     | 3.1–3.3 | Output writing & integration | 1 h 5 min |
-| 4     | 4.1–4.5 | Dedup, Outlook, testing, docs | 1 h 55 min |
-| **Total** | **18 tasks** | **End-to-end refactor + testing** | **~6 h** |
+| Phase | Tasks | Focus | Est. Time | Actual Time | Status |
+|-------|-------|-------|-----------|-------------|--------|
+| 1     | 1.1–1.5 | Parsing + CLI + Logging | 1 h 50 min | — | Not started |
+| **2** | **2.1–2.3** | **Field mapping & normalization** | **1 h 10 min** | **~1 h** | **✅ COMPLETE** |
+| 3     | 3.1–3.3 | Output writing & integration | 1 h 5 min | — | Not started |
+| 4     | 4.1–4.5 | Dedup, Outlook, testing, docs | 1 h 55 min | — | Not started |
+| **Total** | **18 tasks** | **End-to-end refactor + testing** | **~6 h** | **~1 h** | **2/18 tasks** |
 
 ---
 
