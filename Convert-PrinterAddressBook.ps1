@@ -67,38 +67,60 @@ param(
 
 $Script:BrandConfig = @{
     'Canon'   = @{
-        NameField        = 'cn'
-        EmailField       = 'mailaddress'
-        Encoding         = 'UTF8'
-        Delimiter        = ','
-        HasComments      = $true
-        SignatureColumns = @('objectclass', 'cn', 'mailaddress')
+        NameField         = 'cn'
+        EmailField        = 'mailaddress'
+        Encoding          = 'UTF8'
+        Delimiter         = ','
+        HasComments       = $true
+        SignatureColumns  = @('objectclass', 'cn', 'mailaddress')
+        # Output field mappings
+        OutputFields      = @{
+            DisplayName = 'cn'
+            Email       = 'mailaddress'
+        }
     }
     'Sharp'   = @{
-        NameField        = 'name'
-        EmailField       = 'mail-address'
-        Encoding         = 'UTF8'
-        Delimiter        = ','
-        HasComments      = $false
-        SignatureColumns = @('address', 'name', 'mail-address', 'ftp-host')
+        NameField         = 'name'
+        EmailField        = 'mail-address'
+        Encoding          = 'UTF8'
+        Delimiter         = ','
+        HasComments       = $false
+        SignatureColumns  = @('address', 'name', 'mail-address', 'ftp-host')
+        # Output field mappings
+        OutputFields      = @{
+            DisplayName = 'name'
+            Email       = 'mail-address'
+        }
     }
     'Xerox'   = @{
-        NameField        = 'DisplayName'
-        NameFieldAlt     = @('FirstName', 'LastName')
-        EmailField       = 'E-mailAddress'
-        Encoding         = 'UTF8'
-        Delimiter        = ','
-        HasComments      = $false
-        SignatureColumns = @('XrxAddressBookId', 'DisplayName', 'E-mailAddress')
+        NameField         = 'DisplayName'
+        NameFieldAlt      = @('FirstName', 'LastName')
+        EmailField        = 'E-mailAddress'
+        Encoding          = 'UTF8'
+        Delimiter         = ','
+        HasComments       = $false
+        SignatureColumns  = @('XrxAddressBookId', 'DisplayName', 'E-mailAddress')
+        # Output field mappings
+        OutputFields      = @{
+            DisplayName = 'DisplayName'
+            FirstName   = 'FirstName'
+            LastName    = 'LastName'
+            Email       = 'E-mailAddress'
+        }
     }
     'Develop' = @{
-        NameField        = 'Name'
-        EmailField       = 'MailAddress'
-        Encoding         = 'Unicode'
-        Delimiter        = "`t"
-        HasComments      = $false
-        SkipRows         = 2
-        SignatureColumns = @('AbbrNo', 'Name', 'MailAddress')
+        NameField         = 'Name'
+        EmailField        = 'MailAddress'
+        Encoding          = 'Unicode'
+        Delimiter         = "`t"
+        HasComments       = $false
+        SkipRows          = 2
+        SignatureColumns  = @('AbbrNo', 'Name', 'MailAddress')
+        # Output field mappings
+        OutputFields      = @{
+            DisplayName = 'Name'
+            Email       = 'MailAddress'
+        }
     }
 }
 
@@ -248,6 +270,177 @@ function Get-SearchKey {
         '[T-V]' { return 'Tuv' }
         '[W-Z]' { return 'Wxyz' }
         default { return 'Other' }
+    }
+}
+
+function ConvertTo-NormalizedContact {
+    <#
+    .SYNOPSIS
+        Converts a contact from any brand format to a normalized schema.
+    
+    .DESCRIPTION
+        Creates a standard contact object with Email, FirstName, LastName, and DisplayName.
+        Applies validation and sanitization during normalization.
+    
+    .PARAMETER Contact
+        Source contact object (from CSV parsing)
+    
+    .PARAMETER SourceBrand
+        Brand of the source format (Canon, Sharp, Xerox, Develop)
+    
+    .OUTPUTS
+        Normalized contact hashtable: @{Email, FirstName, LastName, DisplayName}
+    #>
+    param(
+        [Parameter(Mandatory=$true)]
+        [PSCustomObject]$Contact,
+        
+        [Parameter(Mandatory=$true)]
+        [ValidateSet('Canon', 'Sharp', 'Xerox', 'Develop')]
+        [string]$SourceBrand
+    )
+
+    Write-FunctionEntry -FunctionName 'ConvertTo-NormalizedContact' -Parameters @{ SourceBrand = $SourceBrand }
+
+    try {
+        $config = $Script:BrandConfig[$SourceBrand]
+        
+        # Extract email
+        $email = $Contact.($config.EmailField)
+        if ([string]::IsNullOrWhiteSpace($email)) {
+            Write-Log -Level 'WARN' -Function 'ConvertTo-NormalizedContact' -Message "Contact missing email address"
+            return $null
+        }
+        
+        $email = $email.Trim()
+        
+        # Validate email
+        if (-not (Test-Email -Email $email)) {
+            Write-Log -Level 'WARN' -Function 'ConvertTo-NormalizedContact' -Message "Invalid email format: $email"
+            return $null
+        }
+        
+        # Extract and parse name
+        $displayName = ''
+        $firstName = ''
+        $lastName = ''
+        
+        if ($SourceBrand -eq 'Xerox' -and $config.NameFieldAlt) {
+            # Xerox has separate FirstName/LastName fields
+            $displayName = $Contact.($config.NameField)
+            
+            if ([string]::IsNullOrWhiteSpace($displayName)) {
+                $firstName = $Contact.($config.NameFieldAlt[0])
+                $lastName = $Contact.($config.NameFieldAlt[1])
+                
+                if (-not [string]::IsNullOrWhiteSpace($firstName) -or -not [string]::IsNullOrWhiteSpace($lastName)) {
+                    $displayName = "$firstName $lastName".Trim()
+                }
+            }
+            else {
+                # Parse DisplayName into FirstName/LastName
+                $nameParts = Split-FullName -FullName $displayName
+                $firstName = $nameParts.FirstName
+                $lastName = $nameParts.LastName
+            }
+        }
+        else {
+            # Other brands have single name field
+            $displayName = $Contact.($config.NameField)
+            
+            if (-not [string]::IsNullOrWhiteSpace($displayName)) {
+                $displayName = $displayName.Trim()
+                $nameParts = Split-FullName -FullName $displayName
+                $firstName = $nameParts.FirstName
+                $lastName = $nameParts.LastName
+            }
+        }
+        
+        # Validate name
+        if ([string]::IsNullOrWhiteSpace($displayName)) {
+            Write-Log -Level 'WARN' -Function 'ConvertTo-NormalizedContact' -Message "Contact missing name: $email"
+            return $null
+        }
+        
+        # Create normalized contact
+        $normalized = @{
+            Email       = $email
+            FirstName   = $firstName.Trim()
+            LastName    = $lastName.Trim()
+            DisplayName = $displayName.Trim()
+        }
+        
+        Write-Log -Level 'DEBUG' -Function 'ConvertTo-NormalizedContact' -Message "Normalized: $($normalized.DisplayName) <$($normalized.Email)>"
+        Write-FunctionExit -FunctionName 'ConvertTo-NormalizedContact' -Result $normalized.Email
+        
+        return $normalized
+    }
+    catch {
+        Write-Log -Level 'ERROR' -Function 'ConvertTo-NormalizedContact' -Message "Normalization failed" -ErrorRecord $_
+        return $null
+    }
+}
+
+function ConvertFrom-NormalizedContact {
+    <#
+    .SYNOPSIS
+        Converts a normalized contact to a target brand format.
+    
+    .DESCRIPTION
+        Maps normalized contact fields (Email, FirstName, LastName, DisplayName)
+        to target brand-specific field names using BrandConfig OutputFields.
+    
+    .PARAMETER NormalizedContact
+        Normalized contact hashtable: @{Email, FirstName, LastName, DisplayName}
+    
+    .PARAMETER TargetBrand
+        Brand of the target format (Canon, Sharp, Xerox, Develop)
+    
+    .OUTPUTS
+        Hashtable with target brand field names
+    #>
+    param(
+        [Parameter(Mandatory=$true)]
+        [hashtable]$NormalizedContact,
+        
+        [Parameter(Mandatory=$true)]
+        [ValidateSet('Canon', 'Sharp', 'Xerox', 'Develop')]
+        [string]$TargetBrand
+    )
+
+    Write-FunctionEntry -FunctionName 'ConvertFrom-NormalizedContact' -Parameters @{ TargetBrand = $TargetBrand; Email = $NormalizedContact.Email }
+
+    try {
+        $config = $Script:BrandConfig[$TargetBrand]
+        $targetContact = @{}
+        
+        # Map normalized fields to target brand fields
+        if ($config.OutputFields.DisplayName) {
+            $targetContact[$config.OutputFields.DisplayName] = $NormalizedContact.DisplayName
+        }
+        
+        if ($config.OutputFields.Email) {
+            $targetContact[$config.OutputFields.Email] = $NormalizedContact.Email
+        }
+        
+        # Xerox uses separate FirstName/LastName
+        if ($TargetBrand -eq 'Xerox') {
+            if ($config.OutputFields.FirstName) {
+                $targetContact[$config.OutputFields.FirstName] = $NormalizedContact.FirstName
+            }
+            if ($config.OutputFields.LastName) {
+                $targetContact[$config.OutputFields.LastName] = $NormalizedContact.LastName
+            }
+        }
+        
+        Write-Log -Level 'DEBUG' -Function 'ConvertFrom-NormalizedContact' -Message "Mapped to $TargetBrand format: $($NormalizedContact.DisplayName)"
+        Write-FunctionExit -FunctionName 'ConvertFrom-NormalizedContact' -Result $TargetBrand
+        
+        return $targetContact
+    }
+    catch {
+        Write-Log -Level 'ERROR' -Function 'ConvertFrom-NormalizedContact' -Message "Conversion to $TargetBrand failed" -ErrorRecord $_
+        return $null
     }
 }
 
