@@ -3,7 +3,7 @@
     Phase 1 Tests - CSV Structure Extraction & Header/Footer Preservation
 
 .DESCRIPTION
-    Tests for Extract-CsvStructure() function to verify:
+    Tests for Get-CsvStructure() function to verify:
     - Headers are preserved exactly (including empty lines)
     - Contact rows are correctly identified (lines with @)
     - Footers are preserved exactly (including empty lines)
@@ -74,15 +74,15 @@ foreach ($file in $testFiles | Select-Object -First 3) {
 }
 
 # Test 2: Structure Extraction
-Write-Host "Test Suite 2: Extract-CsvStructure Function" -ForegroundColor Cyan
+Write-Host "Test Suite 2: Get-CsvStructure Function" -ForegroundColor Cyan
 Write-Host ""
 
 # Load functions manually (without running Main)
 $scriptContent = Get-Content "$PSScriptRoot\..\Convert-PrinterAddressBook.ps1" -Raw
 $functionsToLoad = @(
     'Write-Log',
-    'Detect-Encoding',
-    'Extract-CsvStructure'
+    'Get-FileEncoding',
+    'Get-CsvStructure'
 )
 
 # Execute only the configuration and required functions
@@ -110,10 +110,10 @@ foreach ($file in $testFiles) {
 
     try {
         # Detect encoding
-        $encoding = Detect-Encoding -FilePath $file.FullName
+        $encoding = Get-FileEncoding -FilePath $file.FullName
 
         # Extract structure
-        $structure = Extract-CsvStructure -FilePath $file.FullName -Encoding $encoding
+        $structure = Get-CsvStructure -FilePath $file.FullName -Encoding $encoding
 
         # Verify structure was extracted
         $hasHeaders = $structure.Headers.Count -ge 0
@@ -154,11 +154,11 @@ foreach ($file in $testFiles) {
 
     try {
         # Read original
-        $encoding = Detect-Encoding -FilePath $file.FullName
+        $encoding = Get-FileEncoding -FilePath $file.FullName
         $originalLines = Get-Content -Path $file.FullName -Encoding $encoding
 
         # Extract and reconstruct
-        $structure = Extract-CsvStructure -FilePath $file.FullName -Encoding $encoding
+        $structure = Get-CsvStructure -FilePath $file.FullName -Encoding $encoding
         $reconstructed = @()
         $reconstructed += $structure.Headers
         $reconstructed += $structure.Contacts

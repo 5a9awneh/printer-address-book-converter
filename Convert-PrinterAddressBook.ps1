@@ -121,17 +121,17 @@ function Write-Log {
         Enhanced logging with console output support
     #>
     param(
-        [Parameter(Mandatory=$true)]
+        [Parameter(Mandatory = $true)]
         [ValidateSet('DEBUG', 'INFO', 'WARN', 'ERROR')]
         [string]$Level,
         
-        [Parameter(Mandatory=$true)]
+        [Parameter(Mandatory = $true)]
         [string]$Message,
         
-        [Parameter(Mandatory=$false)]
+        [Parameter(Mandatory = $false)]
         [string]$Function = '',
         
-        [Parameter(Mandatory=$false)]
+        [Parameter(Mandatory = $false)]
         [System.Management.Automation.ErrorRecord]$ErrorRecord = $null
     )
 
@@ -154,8 +154,8 @@ function Write-Log {
     if ($VerbosePreference -eq 'Continue' -or $Level -in @('WARN', 'ERROR')) {
         $color = switch ($Level) {
             'DEBUG' { 'Gray' }
-            'INFO'  { 'White' }
-            'WARN'  { 'Yellow' }
+            'INFO' { 'White' }
+            'WARN' { 'Yellow' }
             'ERROR' { 'Red' }
         }
         Write-Host "[$Level]$functionPart $Message" -ForegroundColor $color
@@ -252,7 +252,7 @@ function Get-SearchKey {
 
 #region Parsing Functions
 
-function Extract-CsvStructure {
+function Get-CsvStructure {
     <#
     .SYNOPSIS
         Extracts headers, contact data rows, and footers from CSV files.
@@ -281,7 +281,7 @@ function Extract-CsvStructure {
         [string]$Encoding = 'UTF8'
     )
 
-    Write-FunctionEntry -FunctionName 'Extract-CsvStructure' -Parameters @{ FilePath = $FilePath; Encoding = $Encoding }
+    Write-FunctionEntry -FunctionName 'Get-CsvStructure' -Parameters @{ FilePath = $FilePath; Encoding = $Encoding }
 
     try {
         # Read all lines preserving empty lines
@@ -334,7 +334,7 @@ function Extract-CsvStructure {
             @()
         }
 
-        Write-Log -Level 'INFO' -Function 'Extract-CsvStructure' -Message "Extracted: $($headers.Count) headers, $($contacts.Count) contacts, $($footers.Count) footers"
+        Write-Log -Level 'INFO' -Function 'Get-CsvStructure' -Message "Extracted: $($headers.Count) headers, $($contacts.Count) contacts, $($footers.Count) footers"
 
         $result = @{
             Headers  = $headers
@@ -342,11 +342,11 @@ function Extract-CsvStructure {
             Footers  = $footers
         }
         
-        Write-FunctionExit -FunctionName 'Extract-CsvStructure' -Result "$($contacts.Count) contacts"
+        Write-FunctionExit -FunctionName 'Get-CsvStructure' -Result "$($contacts.Count) contacts"
         return $result
     }
     catch {
-        Write-Log -Level 'ERROR' -Function 'Extract-CsvStructure' -Message "Failed for ${FilePath}" -ErrorRecord $_
+        Write-Log -Level 'ERROR' -Function 'Get-CsvStructure' -Message "Failed for ${FilePath}" -ErrorRecord $_
         throw
     }
 }
@@ -355,7 +355,7 @@ function Extract-CsvStructure {
 
 #region Detection Functions
 
-function Detect-Encoding {
+function Get-FileEncoding {
     param([string]$FilePath)
 
     try {
@@ -376,10 +376,10 @@ function Detect-Encoding {
     }
 }
 
-function Detect-Brand {
+function Get-SourceBrand {
     param([string]$FilePath)
 
-    $encoding = Detect-Encoding -FilePath $FilePath
+    $encoding = Get-FileEncoding -FilePath $FilePath
 
     try {
         if ($encoding -eq 'Unicode') {
@@ -454,10 +454,10 @@ function Read-AddressBook {
 
     try {
         # Detect encoding for the file
-        $encoding = Detect-Encoding -FilePath $FilePath
+        $encoding = Get-FileEncoding -FilePath $FilePath
         
         # Extract CSV structure (headers, contacts, footers)
-        $structure = Extract-CsvStructure -FilePath $FilePath -Encoding $encoding
+        $structure = Get-CsvStructure -FilePath $FilePath -Encoding $encoding
         
         if ($structure.Contacts.Count -eq 0) {
             Write-Log "WARN" "No contact lines found in $FilePath"
@@ -1145,7 +1145,7 @@ function Main {
         }
 
         # Detect source brand
-        $detection = Detect-Brand -FilePath $SourcePath
+        $detection = Get-SourceBrand -FilePath $SourcePath
         if ($detection.Confidence -ne 100) {
             Write-Host "Error: Could not auto-detect source brand for: $SourcePath" -ForegroundColor Red
             Write-Host ""
@@ -1235,7 +1235,7 @@ function Main {
     $failedFiles = @()
 
     foreach ($file in $sourceFiles) {
-        $detection = Detect-Brand -FilePath $file
+        $detection = Get-SourceBrand -FilePath $file
         $fileName = Split-Path -Leaf $file
 
         if ($detection.Confidence -eq 100) {
