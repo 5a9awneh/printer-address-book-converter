@@ -1,0 +1,50 @@
+# CSV Files (printer exports and conversions) - EXCLUDED due to sensitive data
+*.csv
+
+# Test sample files - also excluded (contain real user data)
+tests/source_exports/
+
+# Logs
+*.log
+
+# Backups
+backup/
+converted/
+
+# Temporary files
+*.tmp
+*.temp
+
+# PowerShell
+*.ps1xml
+
+# OS Files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# IDE
+.vscode/
+.vs/
+*.code-workspace
+
+# Python (if migrating)
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+env/
+.env
+
+# Output directories
+output/
+results/
+
+# Config files with sensitive data
+config.json
+
+# Test outputs
+test_*.csv
+*_test.csv

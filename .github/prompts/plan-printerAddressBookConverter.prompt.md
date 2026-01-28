@@ -33,10 +33,17 @@ Extract header/footer logic and isolate contact data blocks for all brands.
 - **Acceptance Criteria**: `Read-AddressBook()` calls `Extract-CsvStructure()` and builds contact objects with email and name fields. Test with one Canon, one Sharp file.
 - **Time**: 20 min
 
-### 1.3 Add tests for header/footer preservation
+### 1.3 Add CLI parameter support for non-interactive testing
+- **Files**: `Convert-PrinterAddressBook.ps1`
+- **Modifies**: `param()` block and `Main` function
+- **Description**: **[PRIORITY]** Add command-line parameters to support non-interactive mode for automated testing: `-SourcePath`, `-TargetBrand`, `-Mode` (Single/Batch/Merge), `-NoInteractive`. When parameters are provided, skip menu navigation and execute directly. This enables quick testing without manual GUI clicks.
+- **Acceptance Criteria**: Script can be called with `.\Convert-PrinterAddressBook.ps1 -SourcePath "file.csv" -TargetBrand "Canon" -NoInteractive` and completes conversion without prompts. Menu mode still works when no parameters provided.
+- **Time**: 20 min
+
+### 1.4 Add tests for header/footer preservation
 - **Files**: `tests/` (create new test file or expand existing)
 - **Creates**: Test cases for `Extract-CsvStructure()`
-- **Description**: Write simple tests that verify headers and footers (including blank lines) are preserved exactly. Parse a sample file, reconstruct it, and compare line-by-line.
+- **Description**: Write simple tests that verify headers and footers (including blank lines) are preserved exactly. Parse a sample file, reconstruct it, and compare line-by-line. Uses new CLI parameter support for automated testing.
 - **Acceptance Criteria**: All test files parse and reconstruct without line loss. Empty lines in headers/footers remain intact.
 - **Time**: 15 min
 
@@ -146,11 +153,11 @@ Add optional post-processing features and comprehensive test suite.
 
 | Phase | Tasks | Focus | Est. Time |
 |-------|-------|-------|-----------|
-| 1     | 1.1–1.3 | Parsing & structure extraction | 1 h 5 min |
+| 1     | 1.1–1.4 | Parsing & structure extraction + CLI | 1 h 25 min |
 | 2     | 2.1–2.3 | Field mapping & normalization | 1 h 10 min |
 | 3     | 3.1–3.3 | Output writing & integration | 1 h 5 min |
 | 4     | 4.1–4.5 | Dedup, Outlook, testing, docs | 1 h 55 min |
-| **Total** | **16 tasks** | **End-to-end refactor + testing** | **~5 h 15 min** |
+| **Total** | **17 tasks** | **End-to-end refactor + testing** | **~5 h 35 min** |
 
 ---
 

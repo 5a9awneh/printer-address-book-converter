@@ -32,46 +32,46 @@ param()
 #region Configuration
 
 $Script:BrandConfig = @{
-    'Canon' = @{
-        NameField = 'cn'
-        EmailField = 'mailaddress'
-        Encoding = 'UTF8'
-        Delimiter = ','
-        HasComments = $true
+    'Canon'   = @{
+        NameField        = 'cn'
+        EmailField       = 'mailaddress'
+        Encoding         = 'UTF8'
+        Delimiter        = ','
+        HasComments      = $true
         SignatureColumns = @('objectclass', 'cn', 'mailaddress')
     }
-    'Sharp' = @{
-        NameField = 'name'
-        EmailField = 'mail-address'
-        Encoding = 'UTF8'
-        Delimiter = ','
-        HasComments = $false
+    'Sharp'   = @{
+        NameField        = 'name'
+        EmailField       = 'mail-address'
+        Encoding         = 'UTF8'
+        Delimiter        = ','
+        HasComments      = $false
         SignatureColumns = @('address', 'name', 'mail-address', 'ftp-host')
     }
-    'Xerox' = @{
-        NameField = 'DisplayName'
-        NameFieldAlt = @('FirstName', 'LastName')
-        EmailField = 'E-mailAddress'
-        Encoding = 'UTF8'
-        Delimiter = ','
-        HasComments = $false
+    'Xerox'   = @{
+        NameField        = 'DisplayName'
+        NameFieldAlt     = @('FirstName', 'LastName')
+        EmailField       = 'E-mailAddress'
+        Encoding         = 'UTF8'
+        Delimiter        = ','
+        HasComments      = $false
         SignatureColumns = @('XrxAddressBookId', 'DisplayName', 'E-mailAddress')
     }
     'Develop' = @{
-        NameField = 'Name'
-        EmailField = 'MailAddress'
-        Encoding = 'Unicode'
-        Delimiter = "`t"
-        HasComments = $false
-        SkipRows = 2
+        NameField        = 'Name'
+        EmailField       = 'MailAddress'
+        Encoding         = 'Unicode'
+        Delimiter        = "`t"
+        HasComments      = $false
+        SkipRows         = 2
         SignatureColumns = @('AbbrNo', 'Name', 'MailAddress')
     }
 }
 
 $Script:Stats = @{
-    Converted = 0
-    Skipped = 0
-    Duplicates = 0
+    Converted     = 0
+    Skipped       = 0
+    Duplicates    = 0
     InvalidEmails = @()
 }
 
@@ -122,20 +122,20 @@ function Split-FullName {
     if ($FullName -match '^([^,]+),\s*(.+)$') {
         return @{
             FirstName = $matches[2].Trim()
-            LastName = $matches[1].Trim()
+            LastName  = $matches[1].Trim()
         }
     }
     elseif ($FullName -match '\s') {
         $parts = $FullName -split '\s+', 2
         return @{
             FirstName = $parts[0].Trim()
-            LastName = if ($parts.Count -gt 1) { $parts[1].Trim() } else { '' }
+            LastName  = if ($parts.Count -gt 1) { $parts[1].Trim() } else { '' }
         }
     }
     else {
         return @{
             FirstName = $FullName.Trim()
-            LastName = ''
+            LastName  = ''
         }
     }
 }
@@ -159,6 +159,104 @@ function Get-SearchKey {
         '[T-V]' { return 'Tuv' }
         '[W-Z]' { return 'Wxyz' }
         default { return 'Other' }
+    }
+}
+
+#endregion
+
+#region Parsing Functions
+
+function Extract-CsvStructure {
+    <#
+    .SYNOPSIS
+        Extracts headers, contact data rows, and footers from CSV files.
+    
+    .DESCRIPTION
+        Analyzes CSV files and separates:
+        - Headers: All lines before the first contact (row with @)
+        - Contacts: All lines containing @ symbol (email addresses)
+        - Footers: All lines after the last contact
+        Preserves empty lines and comments exactly as they appear.
+    
+    .PARAMETER FilePath
+        Path to the CSV file to analyze
+    
+    .PARAMETER Encoding
+        File encoding (UTF8, Unicode, etc.)
+    
+    .OUTPUTS
+        Hashtable with Headers, Contacts, and Footers arrays
+    #>
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$FilePath,
+        
+        [Parameter(Mandatory = $false)]
+        [string]$Encoding = 'UTF8'
+    )
+
+    try {
+        # Read all lines preserving empty lines
+        $allLines = Get-Content -Path $FilePath -Encoding $Encoding
+        
+        if ($null -eq $allLines -or $allLines.Count -eq 0) {
+            return @{
+                Headers  = @()
+                Contacts = @()
+                Footers  = @()
+            }
+        }
+
+        # Find first and last contact row indices (rows with @ symbol)
+        $firstContactIndex = -1
+        $lastContactIndex = -1
+
+        for ($i = 0; $i -lt $allLines.Count; $i++) {
+            if ($allLines[$i] -match '@') {
+                if ($firstContactIndex -eq -1) {
+                    $firstContactIndex = $i
+                }
+                $lastContactIndex = $i
+            }
+        }
+
+        # No contacts found - treat entire file as headers
+        if ($firstContactIndex -eq -1) {
+            return @{
+                Headers  = $allLines
+                Contacts = @()
+                Footers  = @()
+            }
+        }
+
+        # Extract sections
+        $headers = if ($firstContactIndex -gt 0) {
+            $allLines[0..($firstContactIndex - 1)]
+        }
+        else {
+            @()
+        }
+
+        $contacts = $allLines[$firstContactIndex..$lastContactIndex]
+
+        $footers = if ($lastContactIndex -lt ($allLines.Count - 1)) {
+            $allLines[($lastContactIndex + 1)..($allLines.Count - 1)]
+        }
+        else {
+            @()
+        }
+
+        Write-Log "INFO" "Extracted structure: $($headers.Count) header lines, $($contacts.Count) contact lines, $($footers.Count) footer lines"
+
+        return @{
+            Headers  = $headers
+            Contacts = $contacts
+            Footers  = $footers
+        }
+    }
+    catch {
+        Write-Log "ERROR" "Extract-CsvStructure failed for ${FilePath}: $_"
+        throw
     }
 }
 
@@ -229,7 +327,7 @@ function Detect-Brand {
 
             if ($confidence -eq 100) {
                 return @{
-                    Brand = $brand
+                    Brand      = $brand
                     Confidence = $confidence
                 }
             }
@@ -261,19 +359,29 @@ function Read-AddressBook {
     $contacts = @()
 
     try {
+        # Detect encoding for the file
+        $encoding = Detect-Encoding -FilePath $FilePath
+        
+        # Extract CSV structure (headers, contacts, footers)
+        $structure = Extract-CsvStructure -FilePath $FilePath -Encoding $encoding
+        
+        if ($structure.Contacts.Count -eq 0) {
+            Write-Log "WARN" "No contact lines found in $FilePath"
+            return @()
+        }
+
+        # Parse contact lines based on brand format
         if ($Brand -eq 'Develop') {
-            $allLines = Get-Content -Path $FilePath -Encoding $config.Encoding -Raw
-            $lines = $allLines -split "`r?`n"
-            $dataLines = $lines | Select-Object -Skip $config.SkipRows
+            # Develop files need special handling - skip metadata rows and use tab delimiter
+            $dataLines = $structure.Contacts
             $tempFile = [System.IO.Path]::GetTempFileName()
             $dataLines | Out-File -FilePath $tempFile -Encoding Unicode
             $data = Import-Csv -Path $tempFile -Delimiter $config.Delimiter
             Remove-Item -Path $tempFile -Force
         }
         elseif ($Brand -eq 'Canon') {
-            $allLines = Get-Content -Path $FilePath -Encoding $config.Encoding -Raw
-            $lines = $allLines -split "`r?`n"
-            $csvLines = $lines | Where-Object { -not ($_ -match '^\s*#') -and -not ([string]::IsNullOrWhiteSpace($_)) }
+            # Canon: Filter out comment lines (starting with #) from contact section
+            $csvLines = $structure.Contacts | Where-Object { -not ($_ -match '^\s*#') -and -not ([string]::IsNullOrWhiteSpace($_)) }
 
             if ($csvLines.Count -eq 0) {
                 Write-Log "WARN" "No data lines in Canon file after filtering comments"
@@ -286,9 +394,14 @@ function Read-AddressBook {
             Remove-Item -Path $tempFile -Force
         }
         else {
-            $data = Import-Csv -Path $FilePath -Encoding $config.Encoding -Delimiter $config.Delimiter
+            # Sharp, Xerox: Standard CSV parsing of contact lines
+            $tempFile = [System.IO.Path]::GetTempFileName()
+            $structure.Contacts | Out-File -FilePath $tempFile -Encoding $encoding
+            $data = Import-Csv -Path $tempFile -Encoding $encoding -Delimiter $config.Delimiter
+            Remove-Item -Path $tempFile -Force
         }
 
+        # Extract email and name from each row
         foreach ($row in $data) {
             $email = $row.($config.EmailField)
 
@@ -296,6 +409,7 @@ function Read-AddressBook {
                 continue
             }
 
+            # Handle Xerox name fields (DisplayName or FirstName+LastName)
             if ($Brand -eq 'Xerox' -and $config.NameFieldAlt) {
                 $name = $row.($config.NameField)
 
@@ -312,12 +426,13 @@ function Read-AddressBook {
                 $name = $row.($config.NameField)
             }
 
+            # Fallback: derive name from email if missing
             if ([string]::IsNullOrWhiteSpace($name)) {
                 $name = ($email -split '@')[0]
             }
 
             $contacts += [PSCustomObject]@{
-                Name = $name.Trim()
+                Name  = $name.Trim()
                 Email = $email.Trim()
             }
         }
@@ -346,86 +461,86 @@ function Write-AddressBook {
             switch ($TargetBrand) {
                 'Canon' {
                     $output += [PSCustomObject]@{
-                        objectclass = 'email'
-                        cn = $contact.Name
-                        cnread = $contact.Name
-                        cnshort = $contact.Name.Substring(0, [Math]::Min(13, $contact.Name.Length))
-                        subdbid = 11
-                        mailaddress = $contact.Email
-                        dialdata = ''
-                        uri = ''
-                        url = ''
-                        path = ''
-                        protocol = 'smtp'
-                        username = ''
-                        pwd = ''
-                        member = ''
-                        indxid = $id
-                        enablepartial = 'off'
-                        sub = ''
-                        faxprotocol = ''
-                        ecm = ''
-                        txstartspeed = ''
-                        commode = ''
-                        lineselect = ''
-                        uricommode = ''
-                        uriflag = ''
-                        pwdinputflag = ''
-                        ifaxmode = ''
-                        transsvcstr1 = ''
-                        transsvcstr2 = ''
-                        ifaxdirectmode = ''
-                        documenttype = ''
-                        bwpapersize = ''
+                        objectclass       = 'email'
+                        cn                = $contact.Name
+                        cnread            = $contact.Name
+                        cnshort           = $contact.Name.Substring(0, [Math]::Min(13, $contact.Name.Length))
+                        subdbid           = 11
+                        mailaddress       = $contact.Email
+                        dialdata          = ''
+                        uri               = ''
+                        url               = ''
+                        path              = ''
+                        protocol          = 'smtp'
+                        username          = ''
+                        pwd               = ''
+                        member            = ''
+                        indxid            = $id
+                        enablepartial     = 'off'
+                        sub               = ''
+                        faxprotocol       = ''
+                        ecm               = ''
+                        txstartspeed      = ''
+                        commode           = ''
+                        lineselect        = ''
+                        uricommode        = ''
+                        uriflag           = ''
+                        pwdinputflag      = ''
+                        ifaxmode          = ''
+                        transsvcstr1      = ''
+                        transsvcstr2      = ''
+                        ifaxdirectmode    = ''
+                        documenttype      = ''
+                        bwpapersize       = ''
                         bwcompressiontype = ''
-                        bwpixeltype = ''
-                        bwbitsperpixel = ''
-                        bwresolution = ''
-                        clpapersize = ''
+                        bwpixeltype       = ''
+                        bwbitsperpixel    = ''
+                        bwresolution      = ''
+                        clpapersize       = ''
                         clcompressiontype = ''
-                        clpixeltype = ''
-                        clbitsperpixel = ''
-                        clresolution = ''
-                        accesscode = ''
-                        uuid = ''
-                        cnreadlang = 'en'
-                        enablesfp = ''
-                        memberobjectuuid = ''
-                        loginusername = ''
-                        logindomainname = ''
-                        usergroupname = ''
-                        personalid = ''
-                        folderidflag = ''
+                        clpixeltype       = ''
+                        clbitsperpixel    = ''
+                        clresolution      = ''
+                        accesscode        = ''
+                        uuid              = ''
+                        cnreadlang        = 'en'
+                        enablesfp         = ''
+                        memberobjectuuid  = ''
+                        loginusername     = ''
+                        logindomainname   = ''
+                        usergroupname     = ''
+                        personalid        = ''
+                        folderidflag      = ''
                     }
                 }
                 'Sharp' {
                     $output += [PSCustomObject]@{
-                        address = 'data'
-                        'search-id' = $id
-                        name = $contact.Name
-                        'search-string' = $contact.Name
-                        'category-id' = 1
-                        'frequently-used' = 'FALSE'
-                        'mail-address' = $contact.Email
-                        'fax-number' = ''
-                        'ifax-address' = ''
-                        'ftp-host' = ''
-                        'ftp-directory' = ''
-                        'ftp-username' = '+xS4FiNvCE4i8EqfPNhjWg=='
-                        'ftp-username/@encodingMethod' = 'encrypted2'
-                        'ftp-password' = '+xS4FiNvCE4i8EqfPNhjWg=='
-                        'ftp-password/@encodingMethod' = 'encrypted2'
-                        'smb-directory' = ''
-                        'smb-username' = '+xS4FiNvCE4i8EqfPNhjWg=='
-                        'smb-username/@encodingMethod' = 'encrypted2'
-                        'smb-password' = '+xS4FiNvCE4i8EqfPNhjWg=='
-                        'smb-password/@encodingMethod' = 'encrypted2'
-                        'desktop-host' = ''
-                        'desktop-port' = ''
-                        'desktop-directory' = ''
-                        'desktop-username' = '+xS4FiNvCE4i8EqfPNhjWg=='
+                        address                            = 'data'
+                        'search-id'                        = $id
+                        name                               = $contact.Name
+                        'search-string'                    = $contact.Name
+                        'category-id'                      = 1
+                        'frequently-used'                  = 'FALSE'
+                        'mail-address'                     = $contact.Email
+                        'fax-number'                       = ''
+                        'ifax-address'                     = ''
+                        'ftp-host'                         = ''
+                        'ftp-directory'                    = ''
+                        'ftp-username'                     = '+xS4FiNvCE4i8EqfPNhjWg=='
+                        'ftp-username/@encodingMethod'     = 'encrypted2'
+                        'ftp-password'                     = '+xS4FiNvCE4i8EqfPNhjWg=='
+                        'ftp-password/@encodingMethod'     = 'encrypted2'
+                        'smb-directory'                    = ''
+                        'smb-username'                     = '+xS4FiNvCE4i8EqfPNhjWg=='
+                        'smb-username/@encodingMethod'     = 'encrypted2'
+                        'smb-password'                     = '+xS4FiNvCE4i8EqfPNhjWg=='
+                        'smb-password/@encodingMethod'     = 'encrypted2'
+                        'desktop-host'                     = ''
+                        'desktop-port'                     = ''
+                        'desktop-directory'                = ''
+                        'desktop-username'                 = '+xS4FiNvCE4i8EqfPNhjWg=='
                         'desktop-username/@encodingMethod' = 'encrypted2'
-                        'desktop-password' = '+xS4FiNvCE4i8EqfPNhjWg=='
+                        'desktop-password'                 = '+xS4FiNvCE4i8EqfPNhjWg=='
                         'desktop-password/@encodingMethod' = 'encrypted2'
                     }
                 }
@@ -433,81 +548,81 @@ function Write-AddressBook {
                     $nameParts = Split-FullName -FullName $contact.Name
 
                     $output += [PSCustomObject]@{
-                        XrxAddressBookId = $id
-                        DisplayName = $contact.Name
-                        FirstName = $nameParts.FirstName
-                        LastName = $nameParts.LastName
-                        Company = ''
-                        XrxAllFavoritesOrder = ''
-                        MemberOf = '""""""'
-                        IsDL = 0
+                        XrxAddressBookId       = $id
+                        DisplayName            = $contact.Name
+                        FirstName              = $nameParts.FirstName
+                        LastName               = $nameParts.LastName
+                        Company                = ''
+                        XrxAllFavoritesOrder   = ''
+                        MemberOf               = '""""""'
+                        IsDL                   = 0
                         XrxApplicableWorkflows = ''
-                        FaxNumber = ''
-                        XrxIsFaxFavorite = 0
-                        'E-mailAddress' = $contact.Email
-                        XrxIsEmailFavorite = 0
-                        InternetFaxAddress = ''
-                        ScanNickName = ''
-                        XrxIsScanFavorite = 0
-                        ScanTransferProtocol = 4
-                        ScanServerAddress = '(null)'
-                        ScanServerPort = 0
-                        ScanDocumentPath = ''
-                        ScanLoginName = ''
-                        ScanLoginPassword = ''
-                        ScanSMBShare = ''
-                        ScanNDSTree = ''
-                        ScanNDSContext = ''
-                        ScanNDSVolume = ''
+                        FaxNumber              = ''
+                        XrxIsFaxFavorite       = 0
+                        'E-mailAddress'        = $contact.Email
+                        XrxIsEmailFavorite     = 0
+                        InternetFaxAddress     = ''
+                        ScanNickName           = ''
+                        XrxIsScanFavorite      = 0
+                        ScanTransferProtocol   = 4
+                        ScanServerAddress      = '(null)'
+                        ScanServerPort         = 0
+                        ScanDocumentPath       = ''
+                        ScanLoginName          = ''
+                        ScanLoginPassword      = ''
+                        ScanSMBShare           = ''
+                        ScanNDSTree            = ''
+                        ScanNDSContext         = ''
+                        ScanNDSVolume          = ''
                     }
                 }
                 'Develop' {
                     $output += [PSCustomObject]@{
-                        AbbrNo = $id
-                        Name = $contact.Name
-                        Pinyin = 'No'
-                        Furigana = $contact.Name
-                        SearchKey = (Get-SearchKey -Name $contact.Name)
-                        WellUse = 'Yes'
-                        SendMode = 'Email'
-                        IconID = ''
-                        UseReferLicence = 'Level'
-                        ReferGroupNo = 0
-                        ReferPossibleLevel = 0
-                        MailAddress = $contact.Email
-                        FTPServerAddress = ''
-                        FTPServerFolder = ''
-                        FTPLoginAnonymous = ''
-                        FTPLoginUser = ''
-                        FTPLoginPassword = ''
-                        FTPPassiveSend = ''
-                        FTPProxy = ''
-                        FTPPortNo = ''
-                        SMBAddress = ''
-                        SMBFolder = ''
-                        SMBLoginUser = ''
-                        SMBLoginPassword = ''
+                        AbbrNo              = $id
+                        Name                = $contact.Name
+                        Pinyin              = 'No'
+                        Furigana            = $contact.Name
+                        SearchKey           = (Get-SearchKey -Name $contact.Name)
+                        WellUse             = 'Yes'
+                        SendMode            = 'Email'
+                        IconID              = ''
+                        UseReferLicence     = 'Level'
+                        ReferGroupNo        = 0
+                        ReferPossibleLevel  = 0
+                        MailAddress         = $contact.Email
+                        FTPServerAddress    = ''
+                        FTPServerFolder     = ''
+                        FTPLoginAnonymous   = ''
+                        FTPLoginUser        = ''
+                        FTPLoginPassword    = ''
+                        FTPPassiveSend      = ''
+                        FTPProxy            = ''
+                        FTPPortNo           = ''
+                        SMBAddress          = ''
+                        SMBFolder           = ''
+                        SMBLoginUser        = ''
+                        SMBLoginPassword    = ''
                         WebDAVServerAddress = ''
-                        WebDAVCollection = ''
-                        WebDAVLoginUser = ''
+                        WebDAVCollection    = ''
+                        WebDAVLoginUser     = ''
                         WebDAVLoginPassword = ''
-                        WebDAVSSL = ''
-                        WebDAVProxy = ''
-                        WebDAVPortNo = ''
-                        BoxID = ''
-                        Model = ''
-                        FaxPhoneNo = ''
-                        FaxCapability = ''
-                        FaxV34Off = ''
-                        FaxECMOff = ''
-                        FaxOversea = ''
-                        FaxLine = ''
-                        CheckDest = ''
-                        Host = ''
-                        PortNo = ''
-                        IfaxResolution = ''
-                        IfaxSize = ''
-                        IfaxCompression = ''
+                        WebDAVSSL           = ''
+                        WebDAVProxy         = ''
+                        WebDAVPortNo        = ''
+                        BoxID               = ''
+                        Model               = ''
+                        FaxPhoneNo          = ''
+                        FaxCapability       = ''
+                        FaxV34Off           = ''
+                        FaxECMOff           = ''
+                        FaxOversea          = ''
+                        FaxLine             = ''
+                        CheckDest           = ''
+                        Host                = ''
+                        PortNo              = ''
+                        IfaxResolution      = ''
+                        IfaxSize            = ''
+                        IfaxCompression     = ''
                     }
                 }
             }
@@ -763,9 +878,9 @@ function Show-ValidationReport {
 
 function Reset-Stats {
     $Script:Stats = @{
-        Converted = 0
-        Skipped = 0
-        Duplicates = 0
+        Converted     = 0
+        Skipped       = 0
+        Duplicates    = 0
         InvalidEmails = @()
     }
 }
@@ -977,8 +1092,8 @@ function Main {
             Write-Host $detection.Brand -ForegroundColor Green
 
             $fileInfo += @{
-                Path = $file
-                Brand = $detection.Brand
+                Path     = $file
+                Brand    = $detection.Brand
                 FileName = $fileName
             }
         }
@@ -987,7 +1102,7 @@ function Main {
             Write-Host " -> Detection failed" -ForegroundColor Yellow
 
             $failedFiles += @{
-                Path = $file
+                Path     = $file
                 FileName = $fileName
             }
         }
@@ -1013,8 +1128,8 @@ function Main {
             $selectedBrand = $brandOptions[$brandIndex]
 
             $fileInfo += @{
-                Path = $failedFile.Path
-                Brand = $selectedBrand
+                Path     = $failedFile.Path
+                Brand    = $selectedBrand
                 FileName = $failedFile.FileName
             }
 
