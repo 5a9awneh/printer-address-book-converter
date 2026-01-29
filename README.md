@@ -48,8 +48,8 @@ Right-click `Convert-PrinterAddressBook.ps1` → **Run with PowerShell**
 
 <table>
   <tr>
-    <td><img src="screenshots/01-menu.png" alt="Menu" width="280"/></td>
-    <td><img src="screenshots/02-outlook.png" alt="Target" width="280"/></td>
+    <td><img src="screenshots/01-menu.png" alt="Main Menu" width="280"/></td>
+    <td><img src="screenshots/02-outlook.png" alt="Create from Outlook" width="280"/></td>
     <td><img src="screenshots/03-results.png" alt="Results" width="280"/></td>
   </tr>
   <tr>
