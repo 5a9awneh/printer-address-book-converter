@@ -1,6 +1,12 @@
 # 🖨️ Printer Address Book Converter
 
-PowerShell tool to convert printer address book exports between Canon, Sharp, Xerox, and Develop/Konica Minolta formats.
+![PowerShell](https://img.shields.io/badge/PowerShell-5.1%2B-blue?logo=powershell)
+![License](https://img.shields.io/badge/license-MIT-green)
+![Format Support](https://img.shields.io/badge/formats-4%20major%20CSV%20types-orange)
+![Test Coverage](https://img.shields.io/badge/tests-37%20passing-success)
+![Status](https://img.shields.io/badge/status-production%20ready-brightgreen)
+
+Enterprise-grade PowerShell solution for universal printer address book format conversion and management. Brand-agnostic format detection supporting any multifunction printer using standard CSV exports (Canon iR/imageFORCE, Sharp MX/BP, Xerox AltaLink/VersaLink, Develop/Konica Minolta ineo+/bizhub formats). Features intelligent fuzzy deduplication, Outlook validation, and comprehensive batch processing.
 
 ## ✨ Features
 
