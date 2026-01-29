@@ -106,6 +106,106 @@ function Test-MergeSingle {
     }
 }
 
+function Test-FieldPopulation {
+    param(
+        [string]$FilePath,
+        [string]$Brand,
+        [string]$TestName
+    )
+    
+    $script:stats.TotalTests++
+    Write-Host "  $TestName : " -NoNewline
+    
+    try {
+        if (-not (Test-Path $FilePath)) {
+            Write-Host "❌ FILE NOT FOUND" -ForegroundColor Red
+            $script:stats.Failed++
+            $script:stats.FailedTests += $TestName
+            return $false
+        }
+        
+        $content = Get-Content $FilePath -Raw
+        $lines = Get-Content $FilePath
+        
+        # Find first data line (skip headers/comments/blanks)
+        # Canon: # comments, blank line, header, data
+        # Others: header, data
+        $dataLine = $null
+        $headerFound = $false
+        foreach ($line in $lines) {
+            # Skip comment/metadata/blank lines
+            if ($line -match '^#' -or $line -match '^@Ver' -or $line.Trim() -eq '') { continue }
+            
+            # First non-comment, non-blank line is the header
+            if (-not $headerFound) {
+                $headerFound = $true
+                continue
+            }
+            
+            # Next non-blank line is data
+            if ($line.Trim() -ne '') {
+                $dataLine = $line
+                break
+            }
+        }
+        
+        if (-not $dataLine) {
+            Write-Host "❌ NO DATA ROWS" -ForegroundColor Red
+            $script:stats.Failed++
+            $script:stats.FailedTests += $TestName
+            return $false
+        }
+        
+        # Brand-specific validation
+        $validated = $false
+        switch ($Brand) {
+            'Canon' {
+                # Check for required Canon fields: objectclass, subdbid, protocol, indxid, uuid
+                $validated = ($dataLine -match '"email"' -or $dataLine -match 'email,') -and
+                             ($dataLine -match ',11,' -or $dataLine -match ',"11",') -and
+                             ($dataLine -match 'smtp') -and
+                             ($dataLine -match '[0-9a-f]{8}-[0-9a-f]{4}')
+            }
+            'Sharp' {
+                # Check for required Sharp fields: address="data", search-id, category-id, frequently-used
+                $validated = ($dataLine -match '"data"') -and
+                             ($dataLine -match ',"[0-9]+",' -or $dataLine -match ',\d+,') -and
+                             ($dataLine -match 'TRUE' -or $dataLine -match '"1"')
+            }
+            'Xerox' {
+                # Check for required Xerox fields: XrxAddressBookId (sequential number), RefId (UUID format)
+                $validated = ($dataLine -match '"\d+",' -or $dataLine -match '^\d+,') -and
+                             ($dataLine -match '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}')
+            }
+            'Develop' {
+                # Check for required Develop fields: AbbrNo, Pinyin, SendMode, Level
+                $validated = ($dataLine -match '"?\d+"?\t') -and
+                             ($dataLine -match 'No') -and
+                             ($dataLine -match 'Email') -and
+                             ($dataLine -match 'Level')
+            }
+        }
+        
+        if ($validated) {
+            Write-Host "✅ FIELDS OK" -ForegroundColor Green
+            $script:stats.Passed++
+            return $true
+        }
+        else {
+            Write-Host "❌ MISSING FIELDS" -ForegroundColor Red
+            $script:stats.Failed++
+            $script:stats.FailedTests += $TestName
+            return $false
+        }
+    }
+    catch {
+        Write-Host "❌ ERROR: $_" -ForegroundColor Red
+        $script:stats.Failed++
+        $script:stats.FailedTests += $TestName
+        return $false
+    }
+}
+
 # ================================================================
 # SETUP
 # ================================================================
@@ -185,9 +285,9 @@ foreach ($mergedFile in $mergedFiles) {
 }
 
 # ================================================================
-# TEST SUITE 4: OUTLOOK MODE (1 test)
+# TEST SUITE 4: OUTLOOK MODE (4 tests - all targets)
 # ================================================================
-Write-TestHeader "SUITE 4: Outlook Import"
+Write-TestHeader "SUITE 4: Outlook Import to All Targets"
 
 $outlookTestFile = "$PSScriptRoot\temp_outlook_test.txt"
 @"
@@ -196,31 +296,75 @@ DOE, Jane <jane.doe@example.com>;
 JOHNSON, Bob <bob.johnson@example.com>;
 "@ | Out-File -FilePath $outlookTestFile -Encoding UTF8
 
-$script:stats.TotalTests++
-Write-Host "  Outlook → Canon : " -NoNewline
-
-try {
-    $output = & $scriptPath -Mode Outlook -SourcePath $outlookTestFile -TargetPath $testFiles.Canon -NoInteractive *>&1
-    $result = $output | Out-String
+foreach ($target in $brands) {
+    $script:stats.TotalTests++
+    Write-Host "  Outlook → $target : " -NoNewline
     
-    if ($result -match 'Writing\s+(\d+)\s+unique contacts') {
-        $count = $matches[1]
-        Write-Host "✅ $count contacts" -ForegroundColor Green
-        $script:stats.Passed++
+    try {
+        $output = & $scriptPath -Mode Outlook -SourcePath $outlookTestFile -TargetPath $testFiles[$target] -NoInteractive *>&1
+        $result = $output | Out-String
+        
+        if ($result -match 'Writing\s+(\d+)\s+unique contacts') {
+            $count = $matches[1]
+            Write-Host "✅ $count contacts" -ForegroundColor Green
+            $script:stats.Passed++
+        }
+        else {
+            Write-Host "❌ NO OUTPUT" -ForegroundColor Red
+            $script:stats.Failed++
+            $script:stats.FailedTests += "Outlook → $target"
+        }
     }
-    else {
-        Write-Host "❌ NO OUTPUT" -ForegroundColor Red
+    catch {
+        Write-Host "❌ ERROR: $_" -ForegroundColor Red
         $script:stats.Failed++
-        $script:stats.FailedTests += "Outlook Import"
+        $script:stats.FailedTests += "Outlook → $target"
     }
-}
-catch {
-    Write-Host "❌ ERROR: $_" -ForegroundColor Red
-    $script:stats.Failed++
-    $script:stats.FailedTests += "Outlook Import"
 }
 
 Remove-Item $outlookTestFile -Force -ErrorAction SilentlyContinue
+
+# ================================================================
+# TEST SUITE 5: FIELD POPULATION VALIDATION (8 tests)
+# ================================================================
+Write-TestHeader "SUITE 5: Field Population Validation"
+
+# Test one conversion per brand to validate fields are populated
+Write-Host "Generating test outputs for validation..." -ForegroundColor Yellow
+
+# Canon → Sharp (validate Sharp fields)
+& $scriptPath -SourcePath $testFiles.Canon -TargetPath $testFiles.Sharp -NoInteractive *>&1 | Out-Null
+$sharpOutput = Get-ChildItem $samplesDir -Filter "*Canon*converted*.csv" | Sort-Object LastWriteTime -Descending | Select-Object -First 1
+if ($sharpOutput) { Test-FieldPopulation -FilePath $sharpOutput.FullName -Brand 'Sharp' -TestName "Canon→Sharp Fields" }
+
+# Sharp → Canon (validate Canon fields)
+& $scriptPath -SourcePath $testFiles.Sharp -TargetPath $testFiles.Canon -NoInteractive *>&1 | Out-Null
+$canonOutput = Get-ChildItem $samplesDir -Filter "*Sharp*converted*.csv" | Sort-Object LastWriteTime -Descending | Select-Object -First 1
+if ($canonOutput) { Test-FieldPopulation -FilePath $canonOutput.FullName -Brand 'Canon' -TestName "Sharp→Canon Fields" }
+
+# Xerox → Develop (validate Develop fields)
+& $scriptPath -SourcePath $testFiles.Xerox -TargetPath $testFiles.Develop -NoInteractive *>&1 | Out-Null
+$developOutput = Get-ChildItem $samplesDir -Filter "*Xerox*converted*.csv" | Sort-Object LastWriteTime -Descending | Select-Object -First 1
+if ($developOutput) { Test-FieldPopulation -FilePath $developOutput.FullName -Brand 'Develop' -TestName "Xerox→Develop Fields" }
+
+# Develop → Xerox (validate Xerox fields)
+& $scriptPath -SourcePath $testFiles.Develop -TargetPath $testFiles.Xerox -NoInteractive *>&1 | Out-Null
+$xeroxOutput = Get-ChildItem $samplesDir -Filter "*Develop*converted*.csv" | Sort-Object LastWriteTime -Descending | Select-Object -First 1
+if ($xeroxOutput) { Test-FieldPopulation -FilePath $xeroxOutput.FullName -Brand 'Xerox' -TestName "Develop→Xerox Fields" }
+
+# Outlook → All brands (validate field population for Outlook mode)
+foreach ($target in $brands) {
+    $outlookTestFile2 = "$PSScriptRoot\temp_outlook_validation.txt"
+    "TEST, User <test@example.com>" | Out-File -FilePath $outlookTestFile2 -Encoding UTF8
+    & $scriptPath -Mode Outlook -SourcePath $outlookTestFile2 -TargetPath $testFiles[$target] -NoInteractive *>&1 | Out-Null
+    Remove-Item $outlookTestFile2 -Force -ErrorAction SilentlyContinue
+    
+    $outlookOutput = Get-ChildItem (Split-Path $samplesDir) -Filter "Outlook_converted_*.csv" -ErrorAction SilentlyContinue | Sort-Object LastWriteTime -Descending | Select-Object -First 1
+    if ($outlookOutput) { 
+        Test-FieldPopulation -FilePath $outlookOutput.FullName -Brand $target -TestName "Outlook→$target Fields"
+        Remove-Item $outlookOutput.FullName -Force -ErrorAction SilentlyContinue
+    }
+}
 
 # ================================================================
 # CLEANUP

@@ -464,6 +464,12 @@ function ConvertFrom-NormalizedContact {
     .PARAMETER TemplateHeaders
         Optional list of all headers in the template (to ensure all fields exist)
     
+    .PARAMETER TemplateDefaults
+        Optional hashtable of default values from template sample row
+        
+    .PARAMETER ContactIndex
+        Sequential index for this contact (1-based)
+    
     .OUTPUTS
         Hashtable with target brand field names and values
     #>
@@ -479,7 +485,13 @@ function ConvertFrom-NormalizedContact {
         [hashtable]$TemplateMapping,
         
         [Parameter(Mandatory = $false)]
-        [string[]]$TemplateHeaders
+        [string[]]$TemplateHeaders,
+        
+        [Parameter(Mandatory = $false)]
+        [hashtable]$TemplateDefaults,
+        
+        [Parameter(Mandatory = $false)]
+        [int]$ContactIndex = 1
     )
 
     Write-FunctionEntry -FunctionName 'ConvertFrom-NormalizedContact' -Parameters @{ TargetBrand = $TargetBrand; UseTemplate = [bool]$TemplateMapping; Email = $NormalizedContact.Email }
@@ -491,12 +503,21 @@ function ConvertFrom-NormalizedContact {
         # MODE 1: TEMPLATE-BASED CONVERSION
         # ---------------------------------------------------------
         if ($TemplateMapping -and $TemplateHeaders) {
-            # Initialize all fields from template with empty strings
-            foreach ($header in $TemplateHeaders) {
-                $targetContact[$header] = ""
+            # Initialize fields from template defaults (if available) or empty strings
+            if ($TemplateDefaults) {
+                # Use template sample row as baseline for all default values
+                foreach ($header in $TemplateHeaders) {
+                    $targetContact[$header] = if ($TemplateDefaults.ContainsKey($header)) { $TemplateDefaults[$header] } else { "" }
+                }
+            }
+            else {
+                # Fallback: Initialize all fields with empty strings
+                foreach ($header in $TemplateHeaders) {
+                    $targetContact[$header] = ""
+                }
             }
             
-            # Fill mapped fields
+            # Override with actual contact data
             if ($TemplateMapping.ContainsKey('Email')) {
                 $targetContact[$TemplateMapping['Email']] = $NormalizedContact.Email
             }
@@ -512,12 +533,25 @@ function ConvertFrom-NormalizedContact {
             
             # Handle Search Key
             if ($TemplateMapping.ContainsKey('SearchKey')) {
-                # Calculate search key based on FirstName or DisplayName
                 $searchBase = if ($NormalizedContact.FirstName) { $NormalizedContact.FirstName } else { $NormalizedContact.DisplayName }
                 $targetContact[$TemplateMapping['SearchKey']] = Get-SearchKey -Name $searchBase
             }
             
-            Write-Log -Level 'DEBUG' -Function 'ConvertFrom-NormalizedContact' -Message "Mapped to Template format: $($NormalizedContact.DisplayName)"
+            # Handle Sequential Index Fields (indxid, AbbrNo, search-id, XrxAddressBookId, etc.)
+            foreach ($header in $TemplateHeaders) {
+                if ($header -match '^(indxid|AbbrNo|search-id|XrxAddressBookId)$') {
+                    $targetContact[$header] = $ContactIndex
+                }
+            }
+            
+            # Generate new UUIDs for UUID fields
+            foreach ($header in $TemplateHeaders) {
+                if ($header -match 'uuid|Uuid|UUID|RefId|MailRefId') {
+                    $targetContact[$header] = [guid]::NewGuid().ToString()
+                }
+            }
+            
+            Write-Log -Level 'DEBUG' -Function 'ConvertFrom-NormalizedContact' -Message "Mapped to Template format: $($NormalizedContact.DisplayName) (Index: $ContactIndex)"
             Write-FunctionExit -FunctionName 'ConvertFrom-NormalizedContact' -Result "Template"
             
             return $targetContact
@@ -1085,7 +1119,10 @@ function Write-AddressBook {
         [hashtable]$TemplateMapping,
 
         [Parameter(Mandatory = $false)]
-        [string[]]$TemplateColumns
+        [string[]]$TemplateColumns,
+        
+        [Parameter(Mandatory = $false)]
+        [hashtable]$TemplateDefaults
     )
 
     Write-FunctionEntry -FunctionName 'Write-AddressBook' -Parameters @{ OutputPath = $OutputPath; TargetBrand = $TargetBrand; ContactCount = $NormalizedContacts.Count; UseTemplate = [bool]$TemplateStructure }
@@ -1117,8 +1154,10 @@ function Write-AddressBook {
             }
 
             # 2. Process and Write Contacts
+            $contactIndex = 1
             foreach ($normalized in $NormalizedContacts) {
-                $targetFields = ConvertFrom-NormalizedContact -NormalizedContact $normalized -TemplateMapping $TemplateMapping -TemplateHeaders $TemplateColumns
+                $targetFields = ConvertFrom-NormalizedContact -NormalizedContact $normalized -TemplateMapping $TemplateMapping -TemplateHeaders $TemplateColumns -TemplateDefaults $TemplateDefaults -ContactIndex $contactIndex
+                $contactIndex++
                 
                 # Build CSV Line
                 $values = foreach ($col in $TemplateColumns) {
@@ -2318,7 +2357,23 @@ function Convert-AddressBook {
             # Remove empty columns (fixes issue with trailing delimiters)
             $templateColumns = $templateColumns | Where-Object { -not [string]::IsNullOrWhiteSpace($_) }
             
-            # 5c. Generate Mapping
+            # 5c. Extract Template Defaults from first contact row
+            $templateDefaults = $null
+            if ($templateStructure.Contacts.Count -gt 0) {
+                $firstContactLine = $templateStructure.Contacts[0]
+                $tempFile = [System.IO.Path]::GetTempFileName()
+                @($colHeaderLine, $firstContactLine) | Out-File -FilePath $tempFile -Encoding $templateDetails.Encoding
+                $sampleRow = Import-Csv -Path $tempFile -Delimiter $templateDetails.Delimiter | Select-Object -First 1
+                Remove-Item -Path $tempFile -Force
+                
+                # Convert sample row to hashtable
+                $templateDefaults = @{}
+                foreach ($col in $templateColumns) {
+                    $templateDefaults[$col] = $sampleRow.$col
+                }
+            }
+            
+            # 5d. Generate Mapping
             $templateMapping = Get-TemplateMapping -Headers $templateColumns
             
             Write-Host " OK (Heuristic)" -ForegroundColor Green
@@ -2352,7 +2407,8 @@ function Convert-AddressBook {
                 -TemplateStructure $templateStructure `
                 -TemplateDetails $templateDetails `
                 -TemplateMapping $templateMapping `
-                -TemplateColumns $templateColumns
+                -TemplateColumns $templateColumns `
+                -TemplateDefaults $templateDefaults
         }
         else {
             Write-AddressBook -NormalizedContacts $uniqueContacts -OutputPath $outputPath -TargetBrand $TargetBrand
@@ -2464,6 +2520,22 @@ function Main {
         }
         $templateColumns = $templateColumns | Where-Object { -not [string]::IsNullOrWhiteSpace($_) }
         $templateMapping = Get-TemplateMapping -Headers $templateColumns
+        
+        # Extract template defaults from first contact row
+        $templateDefaults = $null
+        if ($templateStructure.Contacts.Count -gt 0) {
+            $firstContactLine = $templateStructure.Contacts[0]
+            $tempFile = [System.IO.Path]::GetTempFileName()
+            @($colHeaderLine, $firstContactLine) | Out-File -FilePath $tempFile -Encoding $templateDetails.Encoding
+            $sampleRow = Import-Csv -Path $tempFile -Delimiter $templateDetails.Delimiter | Select-Object -First 1
+            Remove-Item -Path $tempFile -Force
+            
+            $templateDefaults = @{}
+            foreach ($col in $templateColumns) {
+                $templateDefaults[$col] = $sampleRow.$col
+            }
+        }
+        
         Write-Host "OK" -ForegroundColor Green
 
         # -----------------------------------------------------
@@ -2492,7 +2564,7 @@ function Main {
              
             Write-Host "Writing $($uniqueContacts.Count) unique contacts..." -NoNewline
             Write-AddressBook -NormalizedContacts $uniqueContacts -OutputPath $outputPath -TargetBrand "Converted" `
-                -TemplateStructure $templateStructure -TemplateDetails $templateDetails -TemplateMapping $templateMapping -TemplateColumns $templateColumns
+                -TemplateStructure $templateStructure -TemplateDetails $templateDetails -TemplateMapping $templateMapping -TemplateColumns $templateColumns -TemplateDefaults $templateDefaults
              
             Write-Host " Done" -ForegroundColor Green
             Show-OutputSuccess -OutputPath $outputPath -ContactCount $uniqueContacts.Count -NoPrompt
@@ -2538,7 +2610,7 @@ function Main {
             
             Write-Host "Writing merged output..." -NoNewline
             Write-AddressBook -NormalizedContacts $finalContacts -OutputPath $outputPath -TargetBrand "Converted" `
-                -TemplateStructure $templateStructure -TemplateDetails $templateDetails -TemplateMapping $templateMapping -TemplateColumns $templateColumns
+                -TemplateStructure $templateStructure -TemplateDetails $templateDetails -TemplateMapping $templateMapping -TemplateColumns $templateColumns -TemplateDefaults $templateDefaults
             
             Write-Host " Done" -ForegroundColor Green
             Show-OutputSuccess -OutputPath $outputPath -ContactCount $finalContacts.Count -NoPrompt
@@ -2722,6 +2794,22 @@ function Main {
         }
         $templateColumns = $templateColumns | Where-Object { -not [string]::IsNullOrWhiteSpace($_) }
         $templateMapping = Get-TemplateMapping -Headers $templateColumns
+        
+        # Extract template defaults
+        $templateDefaults = $null
+        if ($templateStructure.Contacts.Count -gt 0) {
+            $firstContactLine = $templateStructure.Contacts[0]
+            $tempFile = [System.IO.Path]::GetTempFileName()
+            @($colHeaderLine, $firstContactLine) | Out-File -FilePath $tempFile -Encoding $templateDetails.Encoding
+            $sampleRow = Import-Csv -Path $tempFile -Delimiter $templateDetails.Delimiter | Select-Object -First 1
+            Remove-Item -Path $tempFile -Force
+            
+            $templateDefaults = @{}
+            foreach ($col in $templateColumns) {
+                $templateDefaults[$col] = $sampleRow.$col
+            }
+        }
+        
         Write-Host "OK" -ForegroundColor Green
 
         # Generate output file - save to current directory
@@ -2738,7 +2826,7 @@ function Main {
         Write-Host "Writing output..." -NoNewline
         try {
             Write-AddressBook -NormalizedContacts $uniqueContacts -OutputPath $outputPath -TargetBrand "Converted" `
-                -TemplateStructure $templateStructure -TemplateDetails $templateDetails -TemplateMapping $templateMapping -TemplateColumns $templateColumns
+                -TemplateStructure $templateStructure -TemplateDetails $templateDetails -TemplateMapping $templateMapping -TemplateColumns $templateColumns -TemplateDefaults $templateDefaults
                 
             Write-Host " Done" -ForegroundColor Green
             Show-OutputSuccess -OutputPath $outputPath -ContactCount $uniqueContacts.Count
@@ -2921,6 +3009,21 @@ function Main {
             }
             $templateColumns = $templateColumns | Where-Object { -not [string]::IsNullOrWhiteSpace($_) }
             $templateMapping = Get-TemplateMapping -Headers $templateColumns
+            
+            # Extract template defaults
+            $templateDefaults = $null
+            if ($templateStructure.Contacts.Count -gt 0) {
+                $firstContactLine = $templateStructure.Contacts[0]
+                $tempFile = [System.IO.Path]::GetTempFileName()
+                @($colHeaderLine, $firstContactLine) | Out-File -FilePath $tempFile -Encoding $templateDetails.Encoding
+                $sampleRow = Import-Csv -Path $tempFile -Delimiter $templateDetails.Delimiter | Select-Object -First 1
+                Remove-Item -Path $tempFile -Force
+                
+                $templateDefaults = @{}
+                foreach ($col in $templateColumns) {
+                    $templateDefaults[$col] = $sampleRow.$col
+                }
+            }
 
             $outputPath = Get-SafeOutputPath -SourcePath $fileInfo[0].Path -TargetBrand "Merged" -IsMerge $true
 
@@ -2942,7 +3045,7 @@ function Main {
             }
 
             Write-AddressBook -NormalizedContacts $finalContacts -OutputPath $outputPath -TargetBrand "Converted" `
-                -TemplateStructure $templateStructure -TemplateDetails $templateDetails -TemplateMapping $templateMapping -TemplateColumns $templateColumns
+                -TemplateStructure $templateStructure -TemplateDetails $templateDetails -TemplateMapping $templateMapping -TemplateColumns $templateColumns -TemplateDefaults $templateDefaults
 
             Write-Host " Done" -ForegroundColor Green
             Show-OutputSuccess -OutputPath $outputPath -ContactCount $finalContacts.Count
