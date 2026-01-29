@@ -1,15 +1,15 @@
-# CSV Files (printer exports and conversions) - EXCLUDED due to sensitive data
+# CSV Files - EXCLUDED from repository except demo samples
 *.csv
 
-# Test sample files - also excluded (contain real user data)
-tests/source_exports/
+# Allow demo samples only
+!tests/demo_samples/*.csv
+!tests/demo_samples/README.md
+
+# Exclude source_samples (contains PII - never commit)
+tests/source_samples/
 
 # Logs
 *.log
-
-# Backups
-backup/
-converted/
 
 # Temporary files
 *.tmp
@@ -48,3 +48,8 @@ config.json
 # Test outputs
 test_*.csv
 *_test.csv
+
+# Converted output files (temporary)
+*_converted*.csv
+Merged_*.csv
+Outlook_converted_*.csv

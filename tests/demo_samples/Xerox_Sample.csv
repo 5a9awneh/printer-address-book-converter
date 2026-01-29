@@ -1,0 +1,5 @@
+﻿XrxAddressBookId,DisplayName,FirstName,LastName,Company,XrxAllFavoritesOrder,MemberOf,IsDL,XrxApplicableWorkflows,FaxNumber,XrxIsFaxFavorite,E-mailAddress,XrxIsEmailFavorite,XrxIsScanFavorite,ScanNickName,ScanTransferProtocol,ScanServerAddress,ScanServerPort,ScanDocumentPath,ScanLoginName,ScanLoginPassword,ScanSMBShare,ScanHTTPScript,RefId,GroupRefId,MailRefId,FaxRefId,ServerRefId
+1,"John Smith","John Smith","John Smith","John Smith",,,0,,,,"john.smith@example.com",1,,,,,,,,,,,"John Smith",,"John Smith",,
+2,"Jane Doe","Jane Doe","Jane Doe","Jane Doe",,,0,,,,"jane.doe@example.com",1,,,,,,,,,,,"Jane Doe",,"Jane Doe",,
+3,"Michael Johnson","Michael Johnson","Michael Johnson","Michael Johnson",,,0,,,,"michael.johnson@example.com",0,,,,,,,,,,,"Michael Johnson",,"Michael Johnson",,
+4,"Emily Davis","Emily Davis","Emily Davis","Emily Davis",,,0,,,,"emily.davis@example.com",0,,,,,,,,,,,"Emily Davis",,"Emily Davis",,

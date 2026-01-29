@@ -1,0 +1,23 @@
+﻿# Canon AddressBook CSV version: 0x0003
+# CharSet: UTF-8
+# dn: fixed
+# DB Version: 0x010b
+
+objectclass,cn,cnread,cnshort,subdbid,mailaddress,dialdata,uri,url,path,protocol,username,pwd,member,indxid,enablepartial,sub,faxprotocol,ecm,txstartspeed,commode,lineselect,uricommode,uriflag,pwdinputflag,ifaxmode,transsvcstr1,transsvcstr2,ifaxdirectmode,documenttype,bwpapersize,bwcompressiontype,bwpixeltype,bwbitsperpixel,bwresolution,clpapersize,clcompressiontype,clpixeltype,clbitsperpixel,clresolution,accesscode,uuid,cnreadlang,enablesfp,memberobjectuuid,loginusername,logindomainname,usergroupname,personalid,folderidflag,
+email,"John Smith","John Smith","John Smith",11,"john.smith@example.com",,,,,smtp,,,,1,off,,,,,,,,,,,,,,,,,,,,,,,,,0,b14adfae-e499-11f0-8000-40f8df69c718,"John Smith",,,,,,,,
+email,"Jane Doe","Jane Doe","Jane Doe",11,"jane.doe@example.com",,,,,smtp,,,,2,off,,,,,,,,,,,,,,,,,,,,,,,,,0,0f4f846c-e572-11f0-8000-40f8df69c718,"Jane Doe",,,,,,,,
+email,"Michael Johnson","Michael Johnson","Michael Johnson",11,"michael.johnson@example.com",,,,,smtp,,,,3,off,,,,,,,,,,,,,,,,,,,,,,,,,0,1e06fa96-e572-11f0-8000-40f8df69c718,"Michael Johnson",,,,,,,,
+email,"Emily Davis","Emily Davis","Emily Davis",11,"emily.davis@example.com",,,,,smtp,,,,4,off,,,,,,,,,,,,,,,,,,,,,,,,,0,2ff04ba0-e572-11f0-8000-40f8df69c718,"Emily Davis",,,,,,,,
+email,"Robert Wilson","Robert Wilson","Robert Wilson",11,"robert.wilson@example.com",,,,,smtp,,,,5,off,,,,,,,,,,,,,,,,,,,,,,,,,0,3ae2bd0a-e572-11f0-8000-40f8df69c718,"Robert Wilson",,,,,,,,
+email,"Sarah Brown","Sarah Brown","Sarah Brown",11,"sarah.brown@example.com",,,,,smtp,,,,6,off,,,,,,,,,,,,,,,,,,,,,,,,,0,562b1130-e572-11f0-8000-40f8df69c718,"Sarah Brown",,,,,,,,
+email,"David Miller","David Miller","David Miller",11,"david.miller@example.com",,,,,smtp,,,,7,off,,,,,,,,,,,,,,,,,,,,,,,,,0,6e25f466-e572-11f0-8000-40f8df69c718,"David Miller",,,,,,,,
+email,"Lisa Anderson","Lisa Anderson","Lisa Anderson",11,"lisa.anderson@example.com",,,,,smtp,,,,8,off,,,,,,,,,,,,,,,,,,,,,,,,,0,7841290f-e572-11f0-8000-40f8df69c718,"Lisa Anderson",,,,,,,,
+email,"Mark Taylor","Mark Taylor","Mark Taylor",11,"mark.taylor@example.com",,,,,smtp,,,,9,off,,,,,,,,,,,,,,,,,,,,,,,,,0,a0ea3a30-e572-11f0-8000-40f8df69c718,"Mark Taylor",,,,,,,,
+email,"Susan Clark","Susan Clark","Susan Clark",11,"susan.clark@example.com",,,,,smtp,,,,10,off,,,,,,,,,,,,,,,,,,,,,,,,,0,bb09cecf-e572-11f0-8000-40f8df69c718,"Susan Clark",,,,,,,,
+email,"Tom Harris","Tom Harris","Tom Harris",11,"tom.harris@example.com",,,,,smtp,,,,11,off,,,,,,,,,,,,,,,,,,,,,,,,,0,d2afeaa4-e572-11f0-8000-40f8df69c718,"Tom Harris",,,,,,,,
+email,"Nancy White","Nancy White","Nancy White",11,"nancy.white@example.com",,,,,smtp,,,,12,off,,,,,,,,,,,,,,,,,,,,,,,,,0,e8311594-e572-11f0-8000-40f8df69c718,"Nancy White",,,,,,,,
+email,"Chris Martin","Chris Martin","Chris Martin",11,"chris.martin@example.com",,,,,smtp,,,,13,off,,,,,,,,,,,,,,,,,,,,,,,,,0,f35c4d58-e572-11f0-8000-40f8df69c718,"Chris Martin",,,,,,,,
+email,"Patricia Garcia","Patricia Garcia","Patricia Garcia",11,"patricia.garcia@example.com",,,,,smtp,,,,14,off,,,,,,,,,,,,,,,,,,,,,,,,,0,0184504c-e573-11f0-8000-40f8df69c718,"Patricia Garcia",,,,,,,,
+email,"James Rodriguez","James Rodriguez","James Rodriguez",11,"james.rodriguez@example.com",,,,,smtp,,,,15,off,,,,,,,,,,,,,,,,,,,,,,,,,0,20bea927-e573-11f0-8000-40f8df69c718,"James Rodriguez",,,,,,,,
+email,"Jennifer Martinez","Jennifer Martinez","Jennifer Martinez",11,"jennifer.martinez@example.com",,,,,smtp,,,,16,off,,,,,,,,,,,,,,,,,,,,,,,,,0,2ee334f3-e573-11f0-8000-40f8df69c718,"Jennifer Martinez",,,,,,,,
+email,"William Lee","William Lee","William Lee",11,"william.lee@example.com",,,,,smtp,,,,17,off,,,,,,,,,,,,,,,,,,,,,,,,,0,395f8a62-e573-11f0-8000-40f8df69c718,"William Lee",,,,,,,,
