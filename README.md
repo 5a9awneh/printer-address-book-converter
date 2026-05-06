@@ -6,6 +6,25 @@
 
 Enterprise-grade PowerShell solution for universal printer address book format conversion and management. Brand-agnostic format detection supporting any multifunction printer using standard CSV exports (Canon iR/imageFORCE, Sharp MX/BP, Xerox AltaLink/VersaLink, Develop/Konica Minolta ineo+/bizhub formats). Features intelligent fuzzy deduplication, Outlook validation, and comprehensive batch processing.
 
+---
+
+## 📸 Quick Demo
+
+<table>
+  <tr>
+    <td><img src="screenshots/01-menu.png" alt="Main Menu" width="280"/></td>
+    <td><img src="screenshots/02-outlook.png" alt="Create from Outlook" width="280"/></td>
+    <td><img src="screenshots/03-results.png" alt="Results" width="280"/></td>
+  </tr>
+  <tr>
+    <td align="center"><b>1️⃣ Select conversion mode</b></td>
+    <td align="center"><b>2️⃣ Choose target format</b></td>
+    <td align="center"><b>3️⃣ View conversion results</b></td>
+  </tr>
+</table>
+
+---
+
 ## ✨ Features
 
 - **🔍 Auto-detection** of source format (Canon, Sharp, Xerox, Develop/Konica/Bizhub)
@@ -47,21 +66,6 @@ Enterprise-grade PowerShell solution for universal printer address book format c
 ## 🚀 Usage
 
 Right-click `Convert-PrinterAddressBook.ps1` → **Run with PowerShell**
-
-### 📸 Quick Demo
-
-<table>
-  <tr>
-    <td><img src="screenshots/01-menu.png" alt="Main Menu" width="280"/></td>
-    <td><img src="screenshots/02-outlook.png" alt="Create from Outlook" width="280"/></td>
-    <td><img src="screenshots/03-results.png" alt="Results" width="280"/></td>
-  </tr>
-  <tr>
-    <td align="center"><b>1️⃣ Select conversion mode</b></td>
-    <td align="center"><b>2️⃣ Choose target format</b></td>
-    <td align="center"><b>3️⃣ View conversion results</b></td>
-  </tr>
-</table>
 
 ### 🎯 Conversion Modes
 
@@ -121,12 +125,13 @@ Output: Outlook_converted_2026-01-29.csv
 ```
 
 ## 📋 Output Structure
- Special Features |
+
+| Brand | Columns | Key Fields | Special Features |
 |---------|---------|------------|------------------|
 | Canon   | 52      | objectclass, cn, cnread, mailaddress | Comment headers with DB version |
 | Sharp   | 27      | address, name, mail-address | Encrypted password placeholders |
 | Xerox   | 26      | XrxAddressBookId, DisplayName, E-mailAddress | Scan protocol fields |
-| Develop | 45      | AbbrNo, Name, SearchKey, MailAddress | Speed dial groups (Abc/Def/Ghi...)
+| Develop | 45      | AbbrNo, Name, SearchKey, MailAddress | Speed dial groups (Abc/Def/Ghi...) |
 
 ## 📁 Files Generated
 
