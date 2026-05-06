@@ -1,10 +1,8 @@
 # 🖨️ Printer Address Book Converter
 
-![PowerShell](https://img.shields.io/badge/PowerShell-5.1%2B-blue?logo=powershell)
-![License](https://img.shields.io/badge/license-MIT-green)
-![Format Support](https://img.shields.io/badge/formats-4%20major%20CSV%20types-orange)
-![Test Coverage](https://img.shields.io/badge/tests-37%20passing-success)
-![Status](https://img.shields.io/badge/status-production%20ready-brightgreen)
+<!-- BADGES:START -->
+[![License](https://img.shields.io/badge/License-MIT-blue?style=flat)](LICENSE) [![PowerShell](https://img.shields.io/badge/PowerShell-5.1%2B-blue?style=flat&logo=powershell)](https://learn.microsoft.com/en-us/powershell/) [![Last Commit](https://img.shields.io/github/last-commit/5a9awneh/printer-address-book-converter)](https://github.com/5a9awneh/printer-address-book-converter/commits/main) [![Format Support](https://img.shields.io/badge/formats-4%20major%20CSV%20types-orange?style=flat)](https://github.com/5a9awneh/printer-address-book-converter) [![Tests](https://img.shields.io/badge/tests-37%20passing-success?style=flat)](https://github.com/5a9awneh/printer-address-book-converter) [![Status](https://img.shields.io/badge/status-production%20ready-brightgreen?style=flat)](https://github.com/5a9awneh/printer-address-book-converter) [![Runs Locally](https://img.shields.io/badge/runs_locally-privacy--first-green?style=flat)](https://github.com/5a9awneh/printer-address-book-converter) [![Human in the Loop](https://img.shields.io/badge/human--in--the--loop-%E2%9C%93-brightgreen?style=flat)](https://github.com/5a9awneh/printer-address-book-converter)
+<!-- BADGES:END -->
 
 Enterprise-grade PowerShell solution for universal printer address book format conversion and management. Brand-agnostic format detection supporting any multifunction printer using standard CSV exports (Canon iR/imageFORCE, Sharp MX/BP, Xerox AltaLink/VersaLink, Develop/Konica Minolta ineo+/bizhub formats). Features intelligent fuzzy deduplication, Outlook validation, and comprehensive batch processing.
 
