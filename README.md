@@ -25,6 +25,36 @@ Enterprise-grade PowerShell solution for universal printer address book format c
 
 ---
 
+---
+
+## 🗺️ Conversion Flow
+
+```mermaid
+flowchart LR
+    Canon_in([Canon CSV\n52 cols]) --> Detect
+    Sharp_in([Sharp CSV\n27 cols]) --> Detect
+    Xerox_in([Xerox CSV\n26 cols]) --> Detect
+    Develop_in([Develop CSV\n45 cols]) --> Detect
+
+    Detect[Auto-detect\nsource format] --> Validate{Valid?\n≥1 contact\nwith email}
+    Validate -->|❌ Invalid| Err([Abort])
+    Validate -->|✅ Valid| Dedup[Fuzzy deduplication\n80% similarity threshold]
+    Dedup --> Outlook[Outlook validation\nemail + name length checks]
+    Outlook --> Map[Field mapping\nto target schema]
+    Map --> Target_in[Select target template\nformat detection only]
+    Target_in --> Write[Write output CSV\nsame directory as source]
+
+    Write --> Canon_out([Canon output])
+    Write --> Sharp_out([Sharp output])
+    Write --> Xerox_out([Xerox output])
+    Write --> Develop_out([Develop output])
+    Write --> Log[Conversion log]
+
+    style Validate fill:#7a5500,color:#fff
+    style Err fill:#8b1a1a,color:#fff
+    style Write fill:#2d6a2d,color:#fff
+```
+
 ## ✨ Features
 
 - **🔍 Auto-detection** of source format (Canon, Sharp, Xerox, Develop/Konica/Bizhub)
